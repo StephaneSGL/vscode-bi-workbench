@@ -27,9 +27,9 @@ This report is finalized from command output immediately before the v0.1.0 commi
 | UI DOM suite | `npm run test:ui` | Pass, 3/3. |
 | Browser interaction | Playwright CLI against the built webview in Chromium | Pass. Report page rendered at 1440x1000; entering `North` and clicking **Apply** emitted the expected `upsertFilter` request. Browser console: 0 errors and 0 warnings. Visual inspection found no clipping or overlap in the tested viewport. |
 | VS Code Extension Host | `npm run test:extension` with VS Code 1.130.0 | Pass twice. Extension discovered and activated; commands and package/Workspace Trust declarations verified; host exit code 0. |
-| Package | `npm run package` | Pass. 32 VSIX files, 14,169,698 bytes (13.51 MiB). |
-| Package integrity | `Get-FileHash -Algorithm SHA256` | `F1E79381882E2F5A6C5E9350756A46DC17B4F31078411BA9472670C294B597EA` |
-| Package contents | archive listing and installed-folder checks | Pass. Extension/webview bundles, project schema, Windows x64 DuckDB DLL, notices, and 44,264-byte collected third-party license file present. |
+| Package | `npm run package` | Pass. Official clean-checkout CI artifact: 32 VSIX files, 14,169,598 bytes (13.51 MiB). |
+| Package integrity | `Get-FileHash -Algorithm SHA256` | `2BABB6802B8C18EE5097FD1949D288077287044EA1ECD64ECA04FD0E5A8C6FD9` |
+| Package contents | archive listing and installed-folder checks | Pass. Extension/webview bundles, project schema, Windows x64 DuckDB DLL, notices, and 44,215-byte collected third-party license file present. |
 | Installation | `code --install-extension artifacts\vscode-bi-workbench-0.1.0.vsix --force` | Pass. VS Code reported successful installation. |
 | Installed identity | `code --list-extensions --show-versions` | `stephanesgl.vscode-bi-workbench@0.1.0` present. |
 | Installed native dependency | direct load of packaged `@duckdb/node-bindings` | Pass. |
@@ -42,7 +42,9 @@ The final `npm run package` reran type checking, lint, all 25 automated tests, a
 
 The initial public Windows validation run completed successfully in 2 minutes 14 seconds: `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package`, and artifact upload all passed. Run: https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30721973755
 
-That run annotated the then-used GitHub Actions v4 JavaScript runtime as Node 20-deprecated. The workflow now uses the official v7 releases for checkout, Node setup, and artifact upload; these releases target the current GitHub-hosted runner runtime.
+That run annotated the then-used GitHub Actions v4 JavaScript runtime as Node 20-deprecated. The workflow now uses the official v7 releases for checkout, Node setup, and artifact upload. The updated workflow passed in 1 minute 47 seconds with every step green: https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30722087226
+
+The locally built and clean-checkout CI VSIX archives were compared file by file. All executable bundles, schema files, native binaries, manifests, and notices matched. Only newline encoding differed in README, changelog, and the generated license compilation. The clean-checkout CI artifact was selected, reinstalled successfully, and is the release artifact whose hash is recorded above.
 
 ## Non-product warnings observed
 
