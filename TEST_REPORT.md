@@ -38,6 +38,12 @@ This report is finalized from command output immediately before the v0.1.0 commi
 
 The final `npm run package` reran type checking, lint, all 25 automated tests, and both production bundles before writing the VSIX.
 
+## Public CI evidence
+
+The initial public Windows validation run completed successfully in 2 minutes 14 seconds: `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package`, and artifact upload all passed. Run: https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30721973755
+
+That run annotated the then-used GitHub Actions v4 JavaScript runtime as Node 20-deprecated. The workflow now uses the official v7 releases for checkout, Node setup, and artifact upload; these releases target the current GitHub-hosted runner runtime.
+
 ## Non-product warnings observed
 
 - The local Extension Host printed a warning from VS Code's built-in Mermaid/Copilot plugin environment about a private API proposal. The BI Workbench test process still exited with code 0; the warning did not reference this extension.
