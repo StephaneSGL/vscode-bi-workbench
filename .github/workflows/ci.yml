@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-validation:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+      - run: npm run test:extension
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vscode-bi-workbench-windows-x64
+          path: artifacts/vscode-bi-workbench-0.1.0.vsix
+          if-no-files-found: error

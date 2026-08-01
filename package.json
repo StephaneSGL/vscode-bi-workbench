@@ -1,0 +1,338 @@
+{
+  "name": "vscode-bi-workbench",
+  "displayName": "BI Workbench",
+  "description": "Local-first business intelligence projects, SQL analytics, semantic models, interactive dashboards, and GitHub Copilot assistance inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "stephanesgl",
+  "license": "MIT",
+  "homepage": "https://github.com/StephaneSGL/vscode-bi-workbench#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StephaneSGL/vscode-bi-workbench.git"
+  },
+  "bugs": {
+    "url": "https://github.com/StephaneSGL/vscode-bi-workbench/issues"
+  },
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Data Science",
+    "Visualization",
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "business intelligence",
+    "analytics",
+    "dashboard",
+    "duckdb",
+    "csv",
+    "excel",
+    "github copilot"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "BI Workbench reads local data files and executes SQL, so the workspace must be trusted."
+    }
+  },
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "biWorkbench.open",
+        "title": "Open BI Workbench",
+        "category": "BI Workbench",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "biWorkbench.createProject",
+        "title": "Create BI Project",
+        "category": "BI Workbench",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "biWorkbench.openProject",
+        "title": "Open BI Project",
+        "category": "BI Workbench",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "biWorkbench.importData",
+        "title": "Import Data",
+        "category": "BI Workbench",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "biWorkbench.saveProject",
+        "title": "Save BI Project",
+        "category": "BI Workbench",
+        "icon": "$(save)"
+      },
+      {
+        "command": "biWorkbench.exportReport",
+        "title": "Export Active Report",
+        "category": "BI Workbench",
+        "icon": "$(export)"
+      },
+      {
+        "command": "biWorkbench.showLogs",
+        "title": "Show Logs",
+        "category": "BI Workbench",
+        "icon": "$(output)"
+      },
+      {
+        "command": "biWorkbench.openHelp",
+        "title": "Open Help",
+        "category": "BI Workbench",
+        "icon": "$(question)"
+      },
+      {
+        "command": "biWorkbench.openProjectFile",
+        "title": "Open in BI Workbench",
+        "category": "BI Workbench"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "biWorkbench.open",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "biWorkbench",
+          "title": "BI Workbench",
+          "icon": "media/bi-workbench.svg"
+        }
+      ]
+    },
+    "views": {
+      "biWorkbench": [
+        {
+          "id": "biWorkbench.projects",
+          "name": "Project",
+          "icon": "$(project)"
+        },
+        {
+          "id": "biWorkbench.model",
+          "name": "Semantic Model",
+          "icon": "$(type-hierarchy)"
+        },
+        {
+          "id": "biWorkbench.reports",
+          "name": "Reports",
+          "icon": "$(graph)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "biWorkbench.projects",
+        "contents": "No BI project is open.\n[Create a project](command:biWorkbench.createProject)\n[Open a project](command:biWorkbench.openProject)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "biWorkbench.open",
+          "when": "view =~ /biWorkbench\\./",
+          "group": "navigation@1"
+        },
+        {
+          "command": "biWorkbench.importData",
+          "when": "view == biWorkbench.projects",
+          "group": "navigation@2"
+        },
+        {
+          "command": "biWorkbench.saveProject",
+          "when": "view =~ /biWorkbench\\./",
+          "group": "navigation@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "biWorkbench.openProjectFile",
+          "when": "resourceExtname == .json && resourceFilename =~ /\\.bi\\.json$/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "BI Workbench",
+      "properties": {
+        "biWorkbench.previewRowLimit": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 10000,
+          "description": "Maximum rows returned by a table preview."
+        },
+        "biWorkbench.queryRowLimit": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "maximum": 100000,
+          "description": "Maximum rows returned to the workbench for an ad-hoc query."
+        },
+        "biWorkbench.copilotDataSharing": {
+          "type": "string",
+          "enum": [
+            "schema",
+            "aggregates",
+            "samples"
+          ],
+          "enumDescriptions": [
+            "Share only table, column, relationship, measure, and report metadata.",
+            "Also share locally computed aggregate summaries without raw rows.",
+            "Also share a bounded sample of raw rows. This can disclose sensitive values to the selected model provider."
+          ],
+          "default": "schema",
+          "description": "Data context BI Workbench may send to the language model when @bi is explicitly used."
+        },
+        "biWorkbench.maxCopilotSampleRows": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum raw rows included when copilotDataSharing is set to samples."
+        },
+        "biWorkbench.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Persist project metadata after each successful change."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "bi-workbench-project",
+        "aliases": [
+          "BI Workbench Project"
+        ],
+        "extensions": [
+          ".bi.json"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "*.bi.json",
+        "url": "./schemas/project.schema.json"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "vscode-bi-workbench.bi",
+        "fullName": "BI Workbench",
+        "name": "bi",
+        "description": "Design queries, analyses, measures, reports, and visualizations for the active BI project.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "sql",
+            "description": "Generate or explain a DuckDB SQL query for the active project"
+          },
+          {
+            "name": "analyze",
+            "description": "Analyze the active project using the configured privacy level"
+          },
+          {
+            "name": "report",
+            "description": "Propose a complete report backed by real project fields"
+          },
+          {
+            "name": "visual",
+            "description": "Choose and configure an appropriate visualization"
+          }
+        ]
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "vscode-bi-workbench_getProjectSchema",
+        "displayName": "Get BI Project Schema",
+        "modelDescription": "Returns the active BI Workbench project's tables, columns, relationships, measures, and reports without raw data values. Use it before writing project-specific SQL or report suggestions.",
+        "userDescription": "Read the active BI project's semantic metadata",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "biProjectSchema",
+        "icon": "$(database)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "vscode-bi-workbench_queryProject",
+        "displayName": "Query BI Project",
+        "modelDescription": "Executes one bounded, read-only SELECT or WITH query against the active BI Workbench project. The tool refuses raw-row disclosure unless the user selected aggregates or samples in BI Workbench settings.",
+        "userDescription": "Run a bounded read-only query against the active BI project",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "biQuery",
+        "icon": "$(run-all)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string",
+              "description": "A single DuckDB SELECT or WITH query. No writes, file readers, network functions, or extension commands."
+            },
+            "purpose": {
+              "type": "string",
+              "description": "Short explanation of why this query is needed."
+            }
+          },
+          "required": [
+            "sql",
+            "purpose"
+          ]
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "node ./scripts/clean.mjs",
+    "build": "node ./esbuild.mjs",
+    "build:watch": "node ./esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:ui": "vitest run tests/ui",
+    "test:extension": "npm run build && node ./dist/test/runExtensionTests.js",
+    "validate": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "package": "npm run validate && node ./scripts/collectLicenses.mjs && node ./scripts/ensureArtifacts.mjs && vsce package --out ./artifacts/vscode-bi-workbench-0.1.0.vsix",
+    "vscode:prepublish": "npm run build"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "1.5.5-r.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.0",
+    "@types/vscode": "1.125.0",
+    "@typescript-eslint/eslint-plugin": "8.65.0",
+    "@typescript-eslint/parser": "8.65.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "3.9.2",
+    "echarts": "6.1.0",
+    "esbuild": "0.28.1",
+    "eslint": "10.8.0",
+    "fflate": "0.8.3",
+    "happy-dom": "20.11.1",
+    "read-excel-file": "8.0.3",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
+  }
+}

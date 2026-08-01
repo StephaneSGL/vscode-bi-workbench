@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/StephaneSGL/vscode-bi-workbench/schemas/project.schema.json",
+  "title": "BI Workbench Project",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "createdAt",
+    "updatedAt",
+    "sources",
+    "tables",
+    "relationships",
+    "measures",
+    "queries",
+    "reports"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/table"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "measures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/measure"
+      }
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/query"
+      }
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/report"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "location",
+        "importedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "csv",
+            "tsv",
+            "json",
+            "jsonl",
+            "parquet",
+            "xlsx",
+            "duckdb"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "importedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "column": {
+      "type": "object",
+      "required": [
+        "name",
+        "dataType",
+        "nullable"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "dataType": {
+          "type": "string"
+        },
+        "nullable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "table": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "physicalName",
+        "kind",
+        "columns",
+        "rowCount"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "physicalName": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imported",
+            "derived"
+          ]
+        },
+        "sourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column"
+          }
+        },
+        "rowCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transformations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "relationship": {
+      "type": "object",
+      "required": [
+        "id",
+        "fromTableId",
+        "fromColumn",
+        "toTableId",
+        "toColumn",
+        "cardinality",
+        "filterDirection",
+        "active"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "fromTableId": {
+          "$ref": "#/$defs/id"
+        },
+        "fromColumn": {
+          "type": "string"
+        },
+        "toTableId": {
+          "$ref": "#/$defs/id"
+        },
+        "toColumn": {
+          "type": "string"
+        },
+        "cardinality": {
+          "enum": [
+            "one-to-one",
+            "one-to-many",
+            "many-to-one",
+            "many-to-many"
+          ]
+        },
+        "filterDirection": {
+          "enum": [
+            "single",
+            "both"
+          ]
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "measure": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "tableId",
+        "expression",
+        "format"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tableId": {
+          "$ref": "#/$defs/id"
+        },
+        "expression": {
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "number",
+            "integer",
+            "currency",
+            "percent",
+            "text"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "sql",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sql": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "report": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "pages"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
