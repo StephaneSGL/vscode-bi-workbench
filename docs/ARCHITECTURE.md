@@ -12,7 +12,7 @@ VS Code
 │  ├─ ImportService: transactional local-file and database ingestion
 │  ├─ TransformationService: typed recipe -> deterministic transactional SQL
 │  ├─ ReportService: visuals + filters + relationships -> bounded read-only SQL
-│  ├─ Activity Bar trees, exports, logs and settings
+│  ├─ Explorer sidebar trees, exports, logs and settings
 │  └─ Copilot participant/tools with privacy and confirmation boundaries
 └─ Webview (browser sandbox)
    ├─ Home/import/data/query/transform/model/measures/reports/settings/help

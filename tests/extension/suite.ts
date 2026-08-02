@@ -25,6 +25,12 @@ export async function run(): Promise<void> {
   const workbenchTab = tabs.find((tab) => tab.label === 'BI Workbench'
     || (tab.input instanceof vscode.TabInputWebview && tab.input.viewType === 'biWorkbench.main'));
   assert.ok(workbenchTab, `The Open command must create the BI Workbench webview tab. Visible tabs: ${tabs.map((tab) => tab.label).join(', ') || 'none'}`);
+  const explorerViews = extension.packageJSON.contributes?.views?.explorer ?? [];
+  for (const viewId of ['biWorkbench.projects', 'biWorkbench.model', 'biWorkbench.reports']) {
+    const view = explorerViews.find((candidate: { id?: string; visibility?: string }) => candidate.id === viewId);
+    assert.ok(view, `Expected ${viewId} to be contributed to the standard Explorer sidebar.`);
+    assert.equal(view.visibility, 'visible', `Expected ${viewId} to be visible by default.`);
+  }
   assert.equal(extension.packageJSON.version, '0.2.0');
   assert.equal(extension.packageJSON.capabilities.untrustedWorkspaces.supported, false);
 }

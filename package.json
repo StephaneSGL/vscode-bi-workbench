@@ -106,31 +106,25 @@
         "mac": "cmd+alt+b"
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "biWorkbench",
-          "title": "BI Workbench",
-          "icon": "media/bi-workbench.svg"
-        }
-      ]
-    },
     "views": {
-      "biWorkbench": [
+      "explorer": [
         {
           "id": "biWorkbench.projects",
-          "name": "Project",
-          "icon": "$(project)"
+          "name": "BI Workbench: Project",
+          "icon": "$(project)",
+          "visibility": "visible"
         },
         {
           "id": "biWorkbench.model",
-          "name": "Semantic Model",
-          "icon": "$(type-hierarchy)"
+          "name": "BI Workbench: Semantic Model",
+          "icon": "$(type-hierarchy)",
+          "visibility": "visible"
         },
         {
           "id": "biWorkbench.reports",
-          "name": "Reports",
-          "icon": "$(graph)"
+          "name": "BI Workbench: Reports",
+          "icon": "$(graph)",
+          "visibility": "visible"
         }
       ]
     },

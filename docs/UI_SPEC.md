@@ -2,9 +2,9 @@
 
 This is the product-level interface map for v0.2.0. **Available** means the control invokes real host behavior and persists or queries real project state. **Partial** names the exact smaller workflow. **Planned** is not presented as an enabled control.
 
-## 1. Activity Bar and project explorer
+## 1. Explorer sidebar and project explorer
 
-- BI Workbench Activity Bar container.
+- BI Workbench views embedded directly in the standard VS Code Explorer sidebar, matching the placement used by Excel AI & VBA Studio.
 - **Project** tree: tables with row counts, sources with formats and saved queries.
 - **Semantic Model** tree: tables, physical/display columns, relationships and measures.
 - **Reports** tree: reports, pages and visuals.
