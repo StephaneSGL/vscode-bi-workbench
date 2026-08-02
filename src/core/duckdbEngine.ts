@@ -59,16 +59,23 @@ export class DuckDbEngine {
     const started = performance.now();
     const result = await this.enqueue(async (connection) => {
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let timedOut = false;
       try {
         const queryPromise = connection.runAndReadAll(boundedSql);
-        const timeoutPromise = new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => {
-            connection.interrupt();
-            reject(new Error(`Query exceeded the ${Math.round(timeoutMs / 1000)} second timeout.`));
-          }, timeoutMs);
-        });
-        const reader = await Promise.race([queryPromise, timeoutPromise]);
+        timer = setTimeout(() => {
+          timedOut = true;
+          connection.interrupt();
+        }, timeoutMs);
+        const reader = await queryPromise;
+        if (timedOut) {
+          throw new Error(`Query exceeded the ${Math.round(timeoutMs / 1000)} second timeout.`);
+        }
         return this.readerToResult(reader, limit, performance.now() - started);
+      } catch (error) {
+        if (timedOut) {
+          throw new Error(`Query exceeded the ${Math.round(timeoutMs / 1000)} second timeout.`, { cause: error });
+        }
+        throw error;
       } finally {
         if (timer) {
           clearTimeout(timer);

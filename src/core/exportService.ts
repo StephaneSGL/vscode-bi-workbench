@@ -32,7 +32,8 @@ export function createStandaloneReportHtml(page: ReportPage, data: readonly Visu
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="generator" content="BI Workbench 0.1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+  <meta name="generator" content="BI Workbench 0.2.0">
   <title>${escapeHtml(projectName)} — ${escapeHtml(page.name)}</title>
   <style>
     :root{font-family:Inter,Segoe UI,sans-serif;color:#172033;background:#f3f6fb}body{margin:0;padding:32px}header{margin-bottom:24px}h1{margin:0;font-size:28px}header p{margin:6px 0;color:#5d6778}.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}.card{grid-column:span 6;background:#fff;border:1px solid #d9e0ea;border-radius:12px;padding:16px;min-height:240px;box-shadow:0 5px 20px #20304a12}.card h2{font-size:16px;margin:0 0 14px}.kpi{font-size:44px;font-weight:700;margin-top:52px}.bars{display:flex;flex-direction:column;gap:8px}.bar-row{display:grid;grid-template-columns:minmax(80px,1fr) 3fr 70px;gap:8px;align-items:center;font-size:12px}.bar{height:14px;background:#5b7cfa;border-radius:4px}.chart{width:100%;height:190px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #e7ebf1;padding:7px;max-width:240px;overflow:hidden;text-overflow:ellipsis}th{background:#f8fafc}.error{color:#a32626;background:#fff1f1;padding:10px;border-radius:6px}@media(max-width:800px){body{padding:16px}.card{grid-column:span 12}}@media print{body{background:#fff;padding:0}.card{break-inside:avoid;box-shadow:none}}

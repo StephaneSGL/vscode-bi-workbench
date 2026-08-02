@@ -1,4 +1,4 @@
-import type { BiProject, ColumnProfile, QueryResult, ReportPage, TableModel, TransformationStep, VisualData } from '../shared/project.js';
+import type { BiProject, ColumnProfile, QueryResult, ReportPage, TableModel, TransformationStep, Visual, VisualData } from '../shared/project.js';
 import type { WorkbenchSection, WorkbenchState } from '../shared/state.js';
 
 export interface UiDraft {
@@ -6,8 +6,12 @@ export interface UiDraft {
   transformSourceId?: string;
   relationshipFromTableId?: string;
   relationshipToTableId?: string;
+  editingRelationshipId?: string;
+  modelTableId?: string;
   filterTableId?: string;
   visualTableId?: string;
+  editingMeasureId?: string;
+  editingVisualId?: string;
   busy?: string;
   toast?: { level: 'info' | 'warning' | 'error'; message: string };
 }
@@ -46,7 +50,7 @@ export function renderApp(state: WorkbenchState, draft: UiDraft): string {
         ${state.error ? `<div class="error-banner"><strong>Operation failed</strong><span>${escapeHtml(state.error)}</span><button data-action="show-logs">Open logs</button></div>` : ''}
         ${renderSection(state, draft)}
       </main>
-      ${draft.busy ? `<div class="busy" role="status"><span class="spinner"></span>${escapeHtml(draft.busy)}</div>` : ''}
+      ${draft.busy ? `<div class="busy" role="status"><span class="spinner"></span>${escapeHtml(draft.busy)}${draft.busy === 'Run query' ? '<button class="secondary" data-action="cancel-query">Cancel query</button>' : ''}</div>` : ''}
       ${draft.toast ? `<div class="toast ${draft.toast.level}" role="status">${escapeHtml(draft.toast.message)}</div>` : ''}
     </div>`;
 }
@@ -59,7 +63,7 @@ function renderSection(state: WorkbenchState, draft: UiDraft): string {
     case 'query': return renderQuery(state);
     case 'transform': return renderTransform(state, draft);
     case 'model': return renderModel(state, draft);
-    case 'measures': return renderMeasures(state);
+    case 'measures': return renderMeasures(state, draft);
     case 'reports': return renderReports(state, draft);
     case 'settings': return renderSettings(state);
     case 'help': return renderHelp();
@@ -68,7 +72,7 @@ function renderSection(state: WorkbenchState, draft: UiDraft): string {
 
 function renderHome(state: WorkbenchState): string {
   if (!state.project) {
-    return `<section class="empty-home"><div class="hero-mark">▥</div><p class="eyebrow">BUSINESS INTELLIGENCE, INSIDE YOUR EDITOR</p><h1>Build a real local data project.</h1><p>Import files, run DuckDB SQL, define a semantic model, create interactive reports, and ask GitHub Copilot through <code>@bi</code>.</p><div class="hero-actions"><button class="primary large" data-action="create-project">Create a project</button><button class="secondary large" data-action="open-project">Open a project</button></div>${renderRecent(state.recentProjects)}</section>`;
+    return `<section class="empty-home"><div class="hero-mark">▥</div><p class="eyebrow">BUSINESS INTELLIGENCE, INSIDE YOUR EDITOR</p><h1>Build a real local data project.</h1><p>Import files and databases, run DuckDB SQL, define a semantic model, create interactive reports, and ask GitHub Copilot through <code>@bi</code>.</p><div class="hero-actions"><button class="primary large" data-action="create-project">Create a project</button><button class="secondary large" data-action="open-project">Open a project</button></div>${renderRecent(state.recentProjects)}</section>`;
   }
   const project = state.project;
   const rowCount = project.tables.reduce((sum, table) => sum + table.rowCount, 0);
@@ -85,7 +89,7 @@ function renderRecent(recent: readonly string[]): string {
 
 function renderImport(state: WorkbenchState): string {
   return `<section>${sectionHeading('Import data', 'Bulk import into the project DuckDB database. Original files are never modified.', '<button class="primary" data-action="import-data" '+(state.project ? '' : 'disabled')+'>Choose files</button>')}
-  ${!state.project ? noProject() : `<div class="connector-grid">${connector('CSV / TSV', 'Type inference, headers, strict parsing', 'Ready')}${connector('JSON / JSONL', 'Objects and newline-delimited records', 'Ready')}${connector('Excel XLSX', 'All non-empty worksheets, offline parser', 'Ready')}${connector('Parquet', 'Columnar bulk import', 'Ready')}${connector('DuckDB', 'Copy all base tables from a local database', 'Ready')}${connector('PostgreSQL / MySQL / SQLite / ODBC', 'Credential-safe connectors and cancellation', 'Planned v0.2+', true)}</div><div class="info-panel"><strong>Import behavior</strong><ul><li>Data is copied into <code>.bi-workbench/data.duckdb</code>.</li><li>Names are normalized and made unique; display names are preserved.</li><li>Any failure rolls back the active import transaction.</li><li>The generated data directory is ignored by Git by default.</li></ul></div>`}</section>`;
+  ${!state.project ? noProject() : `<div class="connector-grid">${connector('CSV / TSV', 'Type inference, headers, strict parsing', 'Ready')}${connector('JSON / JSONL', 'Objects and newline-delimited records', 'Ready')}${connector('Excel XLSX', 'All non-empty worksheets, offline parser', 'Ready')}${connector('Parquet', 'Columnar bulk import', 'Ready')}${connector('DuckDB', 'Copy all base tables from a local database', 'Ready')}${connector('SQLite', 'Portable read-only copy; .db files are detected by header', 'Ready')}${connector('PostgreSQL / MySQL / ODBC', 'Credential-safe server connectors and cancellation', 'Planned', true)}</div><div class="info-panel"><strong>Import behavior</strong><ul><li>Data is copied into <code>.bi-workbench/data.duckdb</code>.</li><li>Names are normalized and made unique; display names are preserved.</li><li>Any failure rolls back the active import transaction.</li><li>SQLite files are never modified and are limited to 512 MiB by the portable reader.</li><li>The generated data directory is ignored by Git by default.</li></ul></div>`}</section>`;
 }
 
 function connector(title: string, description: string, status: string, disabled = false): string {
@@ -121,26 +125,37 @@ function renderTransform(state: WorkbenchState, draft: UiDraft): string {
   const source = state.project.tables.find((table) => table.id === sourceId) ?? state.project.tables[0];
   return `<section>${sectionHeading('Transform data', 'Steps compile to deterministic SQL and run in one transaction.')}
   <div class="split"><div class="panel"><h2>Pipeline</h2><label class="field"><span>Source table</span><select id="transform-source">${tableOptions(state.project, source?.id)}</select></label><label class="field"><span>Derived table name</span><input id="transform-target" value="${escapeAttribute(source ? `${source.name} Clean` : 'Clean table')}"></label><div class="step-list">${draft.transformationSteps.length ? draft.transformationSteps.map((step, index) => `<div class="step"><b>${index + 1}</b><span><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(describeStep(step))}</small></span><button class="icon-button" data-action="remove-transform-step" data-index="${index}" aria-label="Remove step">×</button></div>`).join('') : '<p class="muted">No steps added.</p>'}</div><div class="panel-actions"><button class="secondary" data-action="clear-transform">Clear</button><button class="primary" data-action="apply-transform" ${draft.transformationSteps.length ? '' : 'disabled'}>Create derived table</button></div></div>
-  <div class="panel"><h2>Add a step</h2><label class="field"><span>Operation</span><select id="transform-type"><option value="filter">Filter rows</option><option value="select">Select columns</option><option value="rename">Rename column</option><option value="cast">Change type</option><option value="fillNull">Fill null values</option><option value="deduplicate">Remove duplicates</option><option value="sort">Sort rows</option></select></label><label class="field"><span>Column</span><select id="transform-column">${columnOptions(source)}</select></label><label class="field"><span>Operator / type / direction</span><select id="transform-operator"><option value="eq">equals</option><option value="neq">not equals</option><option value="contains">contains</option><option value="gt">greater than</option><option value="gte">greater or equal</option><option value="lt">less than</option><option value="lte">less or equal</option><option value="between">between</option><option value="VARCHAR">VARCHAR</option><option value="BIGINT">BIGINT</option><option value="DOUBLE">DOUBLE</option><option value="BOOLEAN">BOOLEAN</option><option value="DATE">DATE</option><option value="TIMESTAMP">TIMESTAMP</option><option value="asc">ascending</option><option value="desc">descending</option></select></label><label class="field"><span>Value / new name / comma-separated columns</span><input id="transform-value" placeholder="Example: France or revenue,total"></label><label class="field"><span>Second value (between)</span><input id="transform-second-value"></label><button class="primary full" data-action="add-transform-step">Add step</button><div class="sql-preview"><small>Execution model</small><code>source → ordered CTE steps → new DuckDB table</code></div></div></div></section>`;
+  <div class="panel"><h2>Add a step</h2><label class="field"><span>Operation</span><select id="transform-type"><option value="filter">Filter rows</option><option value="select">Select columns</option><option value="rename">Rename column</option><option value="cast">Change type</option><option value="fillNull">Fill null values</option><option value="replace">Replace values</option><option value="datePart">Extract date part</option><option value="group">Group and aggregate</option><option value="deduplicate">Remove duplicates</option><option value="sort">Sort rows</option></select></label><label class="field"><span>Column</span><select id="transform-column">${columnOptions(source)}</select></label><label class="field"><span>Operator / type / direction / date part</span><select id="transform-operator"><option value="eq">equals / exact</option><option value="substring">substring</option><option value="neq">not equals</option><option value="contains">contains</option><option value="gt">greater than</option><option value="gte">greater or equal</option><option value="lt">less than</option><option value="lte">less or equal</option><option value="between">between</option><option value="VARCHAR">VARCHAR</option><option value="BIGINT">BIGINT</option><option value="DOUBLE">DOUBLE</option><option value="BOOLEAN">BOOLEAN</option><option value="DATE">DATE</option><option value="TIMESTAMP">TIMESTAMP</option><option value="asc">ascending</option><option value="desc">descending</option><option value="year">year</option><option value="quarter">quarter</option><option value="month">month</option><option value="week">week</option><option value="day">day</option><option value="dayOfWeek">day of week</option><option value="hour">hour</option></select></label><label class="field"><span>Value / new name / group columns</span><input id="transform-value" placeholder="France, new_name, or region,product"></label><label class="field"><span>Second value / aggregations</span><input id="transform-second-value" placeholder="Replacement or sum:amount:revenue"></label><button class="primary full" data-action="add-transform-step">Add step</button><div class="sql-preview"><small>Group syntax</small><code>group columns: region,product · aggregations: sum:amount:revenue, count:id:rows</code><small>Execution model</small><code>source → ordered CTE steps → new DuckDB table</code></div></div></div></section>`;
 }
 
 function renderModel(state: WorkbenchState, draft: UiDraft): string {
   if (!state.project) return `<section>${sectionHeading('Semantic model', 'Define validated relationships between tables.')}${noProject()}</section>`;
   const project = state.project;
-  const fromId = draft.relationshipFromTableId ?? project.tables[0]?.id;
-  const toId = draft.relationshipToTableId ?? project.tables[1]?.id ?? project.tables[0]?.id;
-  const from = project.tables.find((table) => table.id === fromId);
-  const to = project.tables.find((table) => table.id === toId);
-  return `<section>${sectionHeading('Semantic model', 'Relationships are original project metadata and guide joins/Copilot context.')}
-  <div class="model-summary">${project.tables.map((table) => `<article><header><strong>${escapeHtml(table.name)}</strong><span>${table.kind}</span></header>${table.columns.map((column) => `<div><span>${escapeHtml(column.name)}</span><small>${escapeHtml(column.dataType)}</small></div>`).join('')}</article>`).join('')}</div>
-  <div class="split"><div class="panel"><h2>Relationships</h2>${project.relationships.length ? project.relationships.map((relationship) => `<div class="relationship"><span><b>${escapeHtml(tableName(project, relationship.fromTableId))}.${escapeHtml(relationship.fromColumn)}</b><small>${escapeHtml(relationship.cardinality)} · ${escapeHtml(relationship.filterDirection)}</small><b>${escapeHtml(tableName(project, relationship.toTableId))}.${escapeHtml(relationship.toColumn)}</b></span><button class="icon-button" data-action="delete-relationship" data-id="${escapeAttribute(relationship.id)}">×</button></div>`).join('') : '<p class="muted">No relationships defined.</p>'}</div><div class="panel"><h2>Add relationship</h2><div class="form-grid"><label class="field"><span>From table</span><select id="rel-from-table">${tableOptions(project, fromId)}</select></label><label class="field"><span>From column</span><select id="rel-from-column">${columnOptions(from)}</select></label><label class="field"><span>To table</span><select id="rel-to-table">${tableOptions(project, toId)}</select></label><label class="field"><span>To column</span><select id="rel-to-column">${columnOptions(to)}</select></label><label class="field"><span>Cardinality</span><select id="rel-cardinality"><option value="many-to-one">Many to one</option><option value="one-to-many">One to many</option><option value="one-to-one">One to one</option><option value="many-to-many">Many to many</option></select></label><label class="field"><span>Filter direction</span><select id="rel-direction"><option value="single">Single</option><option value="both">Both</option></select></label></div><button class="primary full" data-action="add-relationship" ${project.tables.length ? '' : 'disabled'}>Validate and add</button></div></div></section>`;
+  if (project.tables.length === 0) return `<section>${sectionHeading('Semantic model', 'Configure tables, columns, and relationships.')}${emptyState('No tables', 'Import data before configuring the semantic model.')}</section>`;
+  const editingRelationship = project.relationships.find((relationship) => relationship.id === draft.editingRelationshipId);
+  const requestedFromId = draft.relationshipFromTableId ?? editingRelationship?.fromTableId ?? project.tables[0]?.id;
+  const requestedToId = draft.relationshipToTableId ?? editingRelationship?.toTableId ?? project.tables[1]?.id ?? project.tables[0]?.id;
+  const from = project.tables.find((table) => table.id === requestedFromId) ?? project.tables[0];
+  const to = project.tables.find((table) => table.id === requestedToId) ?? project.tables[1] ?? project.tables[0];
+  const fromId = from?.id;
+  const toId = to?.id;
+  const modelTableId = draft.modelTableId ?? project.tables[0]?.id;
+  const modelTable = project.tables.find((table) => table.id === modelTableId) ?? project.tables[0];
+  return `<section>${sectionHeading('Semantic model', 'Configure business names, formats, hidden fields, and validated relationships.')}
+  <div class="panel model-editor"><div class="panel-title-row"><h2>Table and column configuration</h2><select id="model-table">${tableOptions(project, modelTable?.id)}</select></div>
+  <div class="form-grid"><label class="field"><span>Table display name</span><input id="model-table-name" value="${escapeAttribute(modelTable?.name ?? '')}"></label><label class="field"><span>Description</span><input id="model-table-description" value="${escapeAttribute(modelTable?.description ?? '')}" placeholder="Business meaning and usage"></label></div>
+  <div class="column-config"><div class="column-config-head"><span>Physical column</span><span>Display name</span><span>Semantic type</span><span>Format</span><span>Hidden</span></div>${modelTable?.columns.map((column) => `<div class="column-config-row" data-model-column="${escapeAttribute(column.name)}"><span><strong>${escapeHtml(column.name)}</strong><small>${escapeHtml(column.dataType)}</small></span><label><input class="column-display-name" value="${escapeAttribute(column.displayName ?? column.name)}"><input class="column-description" value="${escapeAttribute(column.description ?? '')}" placeholder="Description"></label><select class="column-semantic-type">${selectOptions(['auto', 'category', 'measure', 'date', 'geography', 'identifier'], column.semanticType ?? 'auto')}</select><select class="column-format">${selectOptions(['auto', 'number', 'integer', 'currency', 'percent', 'date', 'datetime', 'text'], column.format ?? 'auto')}</select><label class="check"><input class="column-hidden" type="checkbox" ${column.hidden ? 'checked' : ''}> Hide</label></div>`).join('') ?? ''}</div>
+  <div class="panel-actions"><span class="muted">Physical names stay unchanged so saved SQL remains valid.</span><button class="primary" data-action="save-table-presentation" data-table-id="${escapeAttribute(modelTable?.id ?? '')}">Save table configuration</button></div></div>
+  <div class="model-summary">${project.tables.map((table) => `<article><header><strong>${escapeHtml(table.name)}</strong><span>${table.kind}</span></header>${table.columns.filter((column) => !column.hidden).map((column) => `<div><span>${escapeHtml(column.displayName ?? column.name)}</span><small>${escapeHtml(column.dataType)}</small></div>`).join('')}</article>`).join('')}</div>
+  <div class="split"><div class="panel"><h2>Relationships</h2>${project.relationships.length ? project.relationships.map((relationship) => `<div class="relationship ${editingRelationship?.id === relationship.id ? 'selected' : ''}"><span><b>${escapeHtml(tableName(project, relationship.fromTableId))}.${escapeHtml(columnDisplayName(project, relationship.fromTableId, relationship.fromColumn))}</b><small>${escapeHtml(relationship.cardinality)} · ${escapeHtml(relationship.filterDirection)} · ${relationship.active ? 'active' : 'inactive'}</small><b>${escapeHtml(tableName(project, relationship.toTableId))}.${escapeHtml(columnDisplayName(project, relationship.toTableId, relationship.toColumn))}</b></span><div class="row-actions"><button data-action="edit-relationship" data-id="${escapeAttribute(relationship.id)}">Edit</button><button class="icon-button" data-action="delete-relationship" data-id="${escapeAttribute(relationship.id)}">×</button></div></div>`).join('') : '<p class="muted">No relationships defined.</p>'}</div><div class="panel"><h2>${editingRelationship ? 'Edit relationship' : 'Add relationship'}</h2><div class="form-grid"><label class="field"><span>From table</span><select id="rel-from-table">${tableOptions(project, fromId)}</select></label><label class="field"><span>From column</span><select id="rel-from-column">${columnOptions(from, editingRelationship?.fromColumn)}</select></label><label class="field"><span>To table</span><select id="rel-to-table">${tableOptions(project, toId)}</select></label><label class="field"><span>To column</span><select id="rel-to-column">${columnOptions(to, editingRelationship?.toColumn)}</select></label><label class="field"><span>Cardinality</span><select id="rel-cardinality">${selectOptions(['many-to-one', 'one-to-many', 'one-to-one', 'many-to-many'], editingRelationship?.cardinality ?? 'many-to-one')}</select></label><label class="field"><span>Filter direction</span><select id="rel-direction">${selectOptions(['single', 'both'], editingRelationship?.filterDirection ?? 'single')}</select></label><label class="check"><input id="rel-active" type="checkbox" ${editingRelationship?.active ?? true ? 'checked' : ''}> Active for filter propagation</label></div><div class="panel-actions">${editingRelationship ? '<button class="secondary" data-action="cancel-relationship-edit">Cancel</button>' : ''}<button class="primary" data-action="add-relationship" data-id="${escapeAttribute(editingRelationship?.id ?? '')}">Validate and save</button></div></div></div></section>`;
 }
 
-function renderMeasures(state: WorkbenchState): string {
+function renderMeasures(state: WorkbenchState, draft: UiDraft): string {
   if (!state.project) return `<section>${sectionHeading('Measures', 'Reusable SQL aggregate calculations.')}${noProject()}</section>`;
   const project = state.project;
+  const editing = project.measures.find((measure) => measure.id === draft.editingMeasureId);
   return `<section>${sectionHeading('Measures', 'Expressions are validated against DuckDB. This is not DAX compatibility.')}
-  <div class="split"><div class="panel"><h2>Defined measures</h2>${project.measures.length ? project.measures.map((measure) => `<div class="measure"><span><strong>${escapeHtml(measure.name)}</strong><code>${escapeHtml(measure.expression)}</code><small>${escapeHtml(tableName(project, measure.tableId))} · ${escapeHtml(measure.format)}</small></span><button class="icon-button" data-action="delete-measure" data-id="${escapeAttribute(measure.id)}">×</button></div>`).join('') : '<p class="muted">No measures defined.</p>'}</div><div class="panel"><h2>New measure</h2><label class="field"><span>Name</span><input id="measure-name" value="Total"></label><label class="field"><span>Home table</span><select id="measure-table">${tableOptions(project)}</select></label><label class="field"><span>Aggregate SQL expression</span><textarea id="measure-expression" class="small-code">SUM(&quot;amount&quot;)</textarea></label><label class="field"><span>Format</span><select id="measure-format"><option value="number">Number</option><option value="integer">Integer</option><option value="currency">Currency</option><option value="percent">Percent</option><option value="text">Text</option></select></label><label class="field"><span>Description</span><input id="measure-description" placeholder="Optional business definition"></label><button class="primary full" data-action="add-measure" ${project.tables.length ? '' : 'disabled'}>Validate and save</button></div></div></section>`;
+  <div class="split"><div class="panel"><h2>Defined measures</h2>${project.measures.length ? project.measures.map((measure) => `<div class="measure ${editing?.id === measure.id ? 'selected' : ''}"><span><strong>${escapeHtml(measure.name)}</strong><code>${escapeHtml(measure.expression)}</code><small>${escapeHtml(tableName(project, measure.tableId))} · ${escapeHtml(measure.format)}</small></span><div class="row-actions"><button data-action="edit-measure" data-id="${escapeAttribute(measure.id)}">Edit</button><button class="icon-button" data-action="delete-measure" data-id="${escapeAttribute(measure.id)}">×</button></div></div>`).join('') : '<p class="muted">No measures defined.</p>'}</div><div class="panel"><h2>${editing ? 'Edit measure' : 'New measure'}</h2><label class="field"><span>Name</span><input id="measure-name" value="${escapeAttribute(editing?.name ?? 'Total')}"></label><label class="field"><span>Home table</span><select id="measure-table">${tableOptions(project, editing?.tableId)}</select></label><label class="field"><span>Aggregate SQL expression</span><textarea id="measure-expression" class="small-code">${escapeHtml(editing?.expression ?? 'SUM("amount")')}</textarea></label><label class="field"><span>Format</span><select id="measure-format">${selectOptions(['number', 'integer', 'currency', 'percent', 'text'], editing?.format ?? 'number')}</select></label><label class="field"><span>Description</span><input id="measure-description" value="${escapeAttribute(editing?.description ?? '')}" placeholder="Optional business definition"></label><div class="panel-actions">${editing ? '<button class="secondary" data-action="cancel-measure-edit">Cancel</button>' : ''}<button class="primary" data-action="save-measure" data-id="${escapeAttribute(editing?.id ?? '')}" ${project.tables.length ? '' : 'disabled'}>Validate and save</button></div></div></div></section>`;
 }
 
 function renderReports(state: WorkbenchState, draft: UiDraft): string {
@@ -149,25 +164,48 @@ function renderReports(state: WorkbenchState, draft: UiDraft): string {
   const report = project.reports.find((item) => item.id === state.selectedReportId) ?? project.reports[0];
   const page = report?.pages.find((item) => item.id === state.selectedPageId) ?? report?.pages[0];
   if (!report || !page) return `<section>${emptyState('No report page', 'Create a report to continue.')}</section>`;
-  const filterTableId = draft.filterTableId ?? project.tables[0]?.id;
-  const filterTable = project.tables.find((table) => table.id === filterTableId);
-  const visualTableId = draft.visualTableId ?? project.tables[0]?.id;
-  const visualTable = project.tables.find((table) => table.id === visualTableId);
+  const requestedFilterTableId = draft.filterTableId ?? project.tables[0]?.id;
+  const filterTable = project.tables.find((table) => table.id === requestedFilterTableId) ?? project.tables[0];
+  const filterTableId = filterTable?.id;
+  const editingVisual = page.visuals.find((visual) => visual.id === draft.editingVisualId);
+  const requestedVisualTableId = draft.visualTableId ?? editingVisual?.tableId ?? project.tables[0]?.id;
+  const visualTable = project.tables.find((table) => table.id === requestedVisualTableId) ?? project.tables[0];
+  const visualTableId = visualTable?.id;
   return `<section class="reports-section">${sectionHeading('Reports', 'Each visual executes a bounded query. Chart clicks create temporary cross-filters.', `<div class="heading-actions"><button class="secondary" data-action="clear-interactions">Clear interactions</button><button class="primary" data-action="export-report">Export HTML</button></div>`)}
   <div class="report-toolbar"><div class="report-tabs">${project.reports.map((item) => `<button class="${item.id === report.id ? 'active' : ''}" data-action="load-page" data-report-id="${escapeAttribute(item.id)}" data-page-id="${escapeAttribute(item.pages[0]?.id ?? '')}">${escapeHtml(item.name)}</button>`).join('')}<button class="icon-button" data-action="delete-report" data-id="${escapeAttribute(report.id)}" aria-label="Delete selected report" ${project.reports.length > 1 ? '' : 'disabled'}>×</button><input id="new-report-name" placeholder="New report"><button data-action="add-report" aria-label="Add report">+</button></div><div class="page-tabs">${report.pages.map((item) => `<button class="${item.id === page.id ? 'active' : ''}" data-action="load-page" data-report-id="${escapeAttribute(report.id)}" data-page-id="${escapeAttribute(item.id)}">${escapeHtml(item.name)}</button>`).join('')}<button class="icon-button" data-action="delete-page" data-id="${escapeAttribute(page.id)}" aria-label="Delete selected page" ${report.pages.length > 1 ? '' : 'disabled'}>×</button><input id="new-page-name" placeholder="New page"><button data-action="add-page" aria-label="Add page">+</button></div></div>
+  <details class="report-settings"><summary>Report and page settings</summary><div class="form-grid"><label class="field"><span>Report name</span><input id="report-name" value="${escapeAttribute(report.name)}"></label><label class="field"><span>Report description</span><input id="report-description" value="${escapeAttribute(report.description ?? '')}"></label><button data-action="save-report-settings">Save report</button><label class="field"><span>Page name</span><input id="page-name" value="${escapeAttribute(page.name)}"></label><label class="field"><span>Page description</span><input id="page-description" value="${escapeAttribute(page.description ?? '')}"></label><button data-action="save-page-settings">Save page</button></div></details>
   <div class="filter-bar"><strong>Filters</strong>${page.filters.map((filter) => `<span class="filter-chip ${filter.temporary ? 'temporary' : ''}">${escapeHtml(tableName(project, filter.tableId))}.${escapeHtml(filter.column)} ${escapeHtml(filter.operator)} ${escapeHtml(String(filter.value ?? ''))}<button data-action="delete-filter" data-id="${escapeAttribute(filter.id)}">×</button></span>`).join('') || '<span class="muted">None</span>'}<span class="spacer"></span><select id="filter-table">${tableOptions(project, filterTableId)}</select><select id="filter-column">${columnOptions(filterTable)}</select><select id="filter-operator"><option value="eq">=</option><option value="neq">≠</option><option value="contains">contains</option><option value="gt">&gt;</option><option value="gte">≥</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="between">between</option><option value="isNull">is null</option><option value="isNotNull">is not null</option></select><input id="filter-value" placeholder="Value"><input id="filter-second" placeholder="Second"><button data-action="add-filter">Apply</button></div>
-  <div class="dashboard-grid">${page.visuals.length ? page.visuals.map((visual) => renderVisualCard(visual, state.visualData.find((item) => item.visualId === visual.id))).join('') : `<div class="dashboard-empty">${emptyState('Blank report page', 'Use the visual builder below to add a real chart.')}</div>`}</div>
-  <details class="builder" open><summary>Add a visualization</summary><div class="visual-builder"><label class="field"><span>Title</span><input id="visual-title" value="New visual"></label><label class="field"><span>Type</span><select id="visual-type"><option value="bar">Bar</option><option value="horizontalBar">Horizontal bar</option><option value="line">Line</option><option value="area">Area</option><option value="pie">Pie</option><option value="donut">Donut</option><option value="scatter">Scatter</option><option value="table">Table</option><option value="kpi">KPI</option><option value="slicer">Slicer</option></select></label><label class="field"><span>Table</span><select id="visual-table">${tableOptions(project, visualTableId)}</select></label><label class="field"><span>Category / X</span><select id="visual-category"><option value="">None</option>${columnOptions(visualTable)}</select></label><label class="field"><span>Value / Y</span><select id="visual-value"><option value="">None</option>${columnOptions(visualTable)}</select></label><label class="field"><span>Measure</span><select id="visual-measure"><option value="">None</option>${project.measures.filter((measure) => measure.tableId === visualTableId).map((measure) => `<option value="${escapeAttribute(measure.id)}">${escapeHtml(measure.name)}</option>`).join('')}</select></label><label class="field"><span>Aggregation</span><select id="visual-aggregation"><option value="sum">Sum</option><option value="avg">Average</option><option value="count">Count rows</option><option value="countDistinct">Distinct count</option><option value="min">Minimum</option><option value="max">Maximum</option><option value="none">None</option></select></label><label class="field"><span>Table columns (comma separated)</span><input id="visual-columns" placeholder="customer, revenue"></label><label class="field"><span>Limit</span><input id="visual-limit" type="number" min="1" max="1000" value="100"></label><button class="primary" data-action="add-visual" ${project.tables.length ? '' : 'disabled'}>Add visual</button></div></details></section>`;
+  <div class="dashboard-grid" style="background:${escapeAttribute(project.theme.backgroundColor ?? 'transparent')}">${page.visuals.length ? page.visuals.map((visual, index) => renderVisualCard(visual, state.visualData.find((item) => item.visualId === visual.id), project, index, page.visuals.length)).join('') : `<div class="dashboard-empty">${emptyState('Blank report page', 'Use the visual builder below to add a real chart.')}</div>`}</div>
+  ${renderVisualBuilder(project, visualTable, visualTableId, editingVisual)}</section>`;
 }
 
-function renderVisualCard(visual: ReportPage['visuals'][number], data?: VisualData): string {
-  const style = `grid-column: span ${visual.width}; min-height: ${visual.height * 62}px`;
+function renderVisualBuilder(project: BiProject, table: TableModel | undefined, tableId: string | undefined, visual?: Visual): string {
+  const columns = table?.columns ?? [];
+  const customColor = Boolean(visual?.color);
+  const customBackground = Boolean(visual?.backgroundColor);
+  return `<details class="builder" open><summary>${visual ? `Edit ${escapeHtml(visual.title)}` : 'Add a visualization'}</summary><div class="visual-builder">
+  <label class="field"><span>Title</span><input id="visual-title" value="${escapeAttribute(visual?.title ?? 'New visual')}"></label><label class="field"><span>Description</span><input id="visual-description" value="${escapeAttribute(visual?.description ?? '')}" placeholder="Accessible description"></label>
+  <label class="field"><span>Type</span><select id="visual-type">${selectOptions(['bar', 'horizontalBar', 'line', 'area', 'pie', 'donut', 'scatter', 'table', 'kpi', 'slicer'], visual?.type ?? 'bar')}</select></label><label class="field"><span>Table</span><select id="visual-table">${tableOptions(project, tableId)}</select></label>
+  <label class="field"><span>Category / X</span><select id="visual-category"><option value="">None</option>${columnOptions(table, visual?.categoryField)}</select></label><label class="field"><span>Series</span><select id="visual-series"><option value="">None</option>${columnOptions(table, visual?.seriesField)}</select></label><label class="field"><span>Value / Y</span><select id="visual-value"><option value="">None</option>${columnOptions(table, visual?.valueField)}</select></label>
+  <label class="field"><span>Measure</span><select id="visual-measure"><option value="">None</option>${project.measures.filter((measure) => measure.tableId === tableId).map((measure) => `<option value="${escapeAttribute(measure.id)}" ${measure.id === visual?.measureId ? 'selected' : ''}>${escapeHtml(measure.name)}</option>`).join('')}</select></label><label class="field"><span>Aggregation</span><select id="visual-aggregation">${selectOptions(['sum', 'avg', 'count', 'countDistinct', 'min', 'max', 'none'], visual?.aggregation ?? 'sum')}</select></label>
+  <fieldset class="column-picker"><legend>Table columns</legend>${columns.map((column) => `<label class="check"><input class="visual-column" type="checkbox" value="${escapeAttribute(column.name)}" ${visual ? visual.columns.includes(column.name) ? 'checked' : '' : column.hidden ? '' : 'checked'}>${escapeHtml(column.displayName ?? column.name)}</label>`).join('') || '<span class="muted">No columns</span>'}</fieldset><label class="field"><span>Column order (physical names)</span><input id="visual-column-order" value="${escapeAttribute((visual?.columns.length ? visual.columns : columns.filter((column) => !column.hidden).map((column) => column.name)).join(', '))}" placeholder="region, amount"></label>
+  <label class="field"><span>Sort field</span><select id="visual-sort-field"><option value="">Automatic</option>${columnOptions(table, visual?.sortField)}</select></label><label class="field"><span>Sort by</span><select id="visual-sort-by">${selectOptions(['auto', 'category', 'value'], visual?.sortBy ?? 'auto')}</select></label><label class="field"><span>Direction</span><select id="visual-sort-direction">${selectOptions(['asc', 'desc'], visual?.sortDirection ?? (['line', 'area', 'scatter'].includes(visual?.type ?? '') ? 'asc' : 'desc'))}</select></label>
+  <label class="field"><span>Width (1–12)</span><input id="visual-width" type="number" min="1" max="12" value="${visual?.width ?? 6}"></label><label class="field"><span>Height (2–12)</span><input id="visual-height" type="number" min="2" max="12" value="${visual?.height ?? 4}"></label><label class="field"><span>Row limit</span><input id="visual-limit" type="number" min="1" max="1000" value="${visual?.limit ?? 100}"></label>
+  <label class="field"><span>Number format</span><select id="visual-number-format">${selectOptions(['auto', 'number', 'integer', 'currency', 'percent', 'date', 'datetime', 'text'], visual?.numberFormat ?? 'auto')}</select></label><label class="field"><span>Currency</span><input id="visual-currency" maxlength="3" value="${escapeAttribute(visual?.currency ?? 'EUR')}"></label><label class="field"><span>Decimals</span><input id="visual-decimals" type="number" min="0" max="6" value="${visual?.decimals ?? 2}"></label>
+  <label class="field color-field"><span><input id="visual-custom-color" type="checkbox" ${customColor ? 'checked' : ''}> Custom color</span><input id="visual-color" type="color" value="${escapeAttribute(visual?.color ?? project.theme.primaryColor)}"></label><label class="field color-field"><span><input id="visual-custom-background" type="checkbox" ${customBackground ? 'checked' : ''}> Custom background</span><input id="visual-background" type="color" value="${escapeAttribute(visual?.backgroundColor ?? project.theme.backgroundColor ?? '#1e1e1e')}"></label>
+  <label class="field"><span>Legend position</span><select id="visual-legend-position">${selectOptions(['top', 'right', 'bottom', 'left'], visual?.legendPosition ?? 'bottom')}</select></label><label class="field"><span>Interaction</span><select id="visual-interaction">${selectOptions(['filter', 'none'], visual?.interactionMode ?? 'filter')}</select></label>
+  <div class="visual-toggles"><label class="check"><input id="visual-show-legend" type="checkbox" ${visual?.showLegend ?? true ? 'checked' : ''}> Legend</label><label class="check"><input id="visual-show-labels" type="checkbox" ${visual?.showLabels ? 'checked' : ''}> Data labels</label><label class="check"><input id="visual-smooth" type="checkbox" ${visual?.smooth ? 'checked' : ''}> Smooth line</label></div>
+  <div class="builder-actions">${visual ? '<button class="secondary" data-action="cancel-visual-edit">Cancel</button>' : ''}<button class="primary" data-action="save-visual" data-id="${escapeAttribute(visual?.id ?? '')}" ${project.tables.length ? '' : 'disabled'}>${visual ? 'Save visual' : 'Add visual'}</button></div></div></details>`;
+}
+
+function renderVisualCard(visual: ReportPage['visuals'][number], data: VisualData | undefined, project: BiProject, index: number, count: number): string {
+  const style = `grid-column: span ${visual.width}; min-height: ${visual.height * 62}px;${visual.backgroundColor ? ` background:${visual.backgroundColor}; --visual-foreground:${contrastTextColor(visual.backgroundColor)}; color:var(--visual-foreground);` : ''}`;
   let body = `<div class="chart-host" id="chart-${escapeAttribute(visual.id)}"></div>`;
   if (data?.error) body = `<div class="visual-error">${escapeHtml(data.error)}</div>`;
-  if (visual.type === 'kpi' && !data?.error) body = `<div class="visual-kpi">${escapeHtml(String(data?.rows[0]?.value ?? '—'))}</div>`;
-  if (visual.type === 'table' && !data?.error) body = renderMiniTable(data);
+  if (visual.type === 'kpi' && !data?.error) body = `<div class="visual-kpi">${escapeHtml(formatVisualValue(visual, data?.rows[0]?.value, project))}</div>`;
+  if (visual.type === 'table' && !data?.error) body = renderMiniTable(data, visual, project);
   if (visual.type === 'slicer' && !data?.error) body = renderSlicer(visual, data);
-  return `<article class="visual-card" style="${style}" data-visual-id="${escapeAttribute(visual.id)}"><header><strong>${escapeHtml(visual.title)}</strong><span>${escapeHtml(visual.type)}</span><button class="icon-button" data-action="delete-visual" data-id="${escapeAttribute(visual.id)}">×</button></header>${body}${data?.truncated ? '<small class="limit-note">Result limited</small>' : ''}</article>`;
+  return `<article class="visual-card" style="${style}" draggable="true" data-visual-id="${escapeAttribute(visual.id)}" data-index="${index}"><header><span class="drag-handle" title="Drag to reorder">⋮⋮</span><strong title="${escapeAttribute(visual.title)}">${escapeHtml(visual.title)}</strong><span>${escapeHtml(visual.type)}</span><div class="visual-actions"><button data-action="move-visual" data-id="${escapeAttribute(visual.id)}" data-index="${Math.max(0, index - 1)}" ${index === 0 ? 'disabled' : ''} aria-label="Move left" title="Move left">←</button><button data-action="move-visual" data-id="${escapeAttribute(visual.id)}" data-index="${Math.min(count - 1, index + 1)}" ${index === count - 1 ? 'disabled' : ''} aria-label="Move right" title="Move right">→</button><button data-action="export-visual" data-id="${escapeAttribute(visual.id)}" data-format="csv" aria-label="Export ${escapeAttribute(visual.title)} as CSV" title="Export as CSV">↓</button><button data-action="edit-visual" data-id="${escapeAttribute(visual.id)}" aria-label="Edit ${escapeAttribute(visual.title)}" title="Edit">✎</button><button data-action="duplicate-visual" data-id="${escapeAttribute(visual.id)}" aria-label="Duplicate ${escapeAttribute(visual.title)}" title="Duplicate">⧉</button><button class="icon-button" data-action="delete-visual" data-id="${escapeAttribute(visual.id)}" aria-label="Delete ${escapeAttribute(visual.title)}" title="Delete">×</button></div></header>${visual.description ? `<p class="visual-description">${escapeHtml(visual.description)}</p>` : ''}${body}${data?.truncated ? '<small class="limit-note">Result limited</small>' : ''}</article>`;
 }
 
 function renderSlicer(visual: ReportPage['visuals'][number], data?: VisualData): string {
@@ -178,21 +216,27 @@ function renderSlicer(visual: ReportPage['visuals'][number], data?: VisualData):
   }).join('')}</div>`;
 }
 
-function renderMiniTable(data?: VisualData): string {
+function renderMiniTable(data: VisualData | undefined, visual: Visual, project: BiProject): string {
   if (!data || data.rows.length === 0) return '<div class="visual-empty">No data</div>';
   const columns = data.columns.map((column) => column.name);
-  return `<div class="mini-table"><table><thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr></thead><tbody>${data.rows.slice(0, 30).map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(displayValue(row[column]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const table = project.tables.find((item) => item.id === visual.tableId);
+  return `<div class="mini-table"><table><thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr></thead><tbody>${data.rows.slice(0, 30).map((row) => `<tr>${columns.map((column) => {
+    const metadata = table?.columns.find((item) => (item.displayName ?? item.name) === column);
+    return `<td>${escapeHtml(formatDisplayValue(row[column], metadata?.format ?? 'auto', visual.currency ?? 'EUR', visual.decimals ?? 2))}</td>`;
+  }).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
 function renderSettings(state: WorkbenchState): string {
   const settings = state.settings;
   return `<section>${sectionHeading('Settings and privacy', 'Project limits and language-model data boundary.', '<button class="primary" data-action="open-settings">Open VS Code Settings</button>')}
-  <div class="settings-list"><article><span><strong>Preview row limit</strong><small>Maximum rows returned by a table preview.</small></span><code>${settings.previewRowLimit}</code></article><article><span><strong>Query row limit</strong><small>Maximum rows returned by an ad-hoc query.</small></span><code>${settings.queryRowLimit}</code></article><article><span><strong>Auto-save</strong><small>Persist metadata after validated changes.</small></span><code>${settings.autoSave ? 'enabled' : 'disabled'}</code></article><article class="privacy-setting"><span><strong>Copilot data sharing</strong><small><b>${escapeHtml(settings.copilotDataSharing)}</b> — schema is the default; aggregates or samples require explicit selection.</small></span><code>max ${settings.maxCopilotSampleRows} samples</code></article></div><div class="warning-panel"><strong>Sensitive data warning</strong><p>Using <code>@bi</code> invokes the model provider selected in VS Code. Schema mode excludes raw values. Sample mode can disclose values; do not enable it for confidential data without authorization.</p></div></section>`;
+  <div class="settings-list"><article><span><strong>Preview row limit</strong><small>Maximum rows returned by a table preview.</small></span><code>${settings.previewRowLimit}</code></article><article><span><strong>Query row limit</strong><small>Maximum rows returned by an ad-hoc query.</small></span><code>${settings.queryRowLimit}</code></article><article><span><strong>Auto-save</strong><small>Persist metadata after validated changes.</small></span><code>${settings.autoSave ? 'enabled' : 'disabled'}</code></article><article class="privacy-setting"><span><strong>Copilot data sharing</strong><small><b>${escapeHtml(settings.copilotDataSharing)}</b> — schema is the default; aggregates or samples require explicit selection.</small></span><code>max ${settings.maxCopilotSampleRows} samples</code></article></div>
+  ${state.project ? `<div class="panel theme-editor"><h2>Report theme</h2><div class="form-grid"><label class="field"><span>Theme name</span><input id="theme-name" value="${escapeAttribute(state.project.theme.name)}"></label><label class="field"><span>Primary color</span><input id="theme-primary" type="color" value="${escapeAttribute(state.project.theme.primaryColor)}"></label><label class="field"><span>Dashboard background</span><input id="theme-background" type="color" value="${escapeAttribute(state.project.theme.backgroundColor ?? '#1e1e1e')}"></label><label class="field wide"><span>Palette (hex colors, comma separated)</span><input id="theme-palette" value="${escapeAttribute(state.project.theme.palette.join(', '))}"></label></div><button class="primary" data-action="save-theme">Save project theme</button></div>` : ''}
+  <div class="warning-panel"><strong>Sensitive data warning</strong><p>Using <code>@bi</code> invokes the model provider selected in VS Code. Schema mode excludes raw values. Sample mode can disclose values; do not enable it for confidential data without authorization.</p></div></section>`;
 }
 
 function renderHelp(): string {
   return `<section>${sectionHeading('Help', 'A compact route through the first usable workflow.', '<div class="heading-actions"><button class="secondary" data-action="show-logs">Open logs</button><button class="primary" data-action="open-help">Open full README</button></div>')}
-  <div class="help-steps"><article><b>1</b><div><h3>Create a project</h3><p>Select a parent folder. BI Workbench creates a documented JSON project and local DuckDB database.</p></div></article><article><b>2</b><div><h3>Import data</h3><p>Use the Import page for CSV, JSON, XLSX, Parquet, or DuckDB. Imported files are not modified.</p></div></article><article><b>3</b><div><h3>Query and clean</h3><p>Run read-only SQL, inspect profiles, then create derived tables through transformation steps.</p></div></article><article><b>4</b><div><h3>Model and calculate</h3><p>Define relationships and SQL measures. Each definition is validated before save.</p></div></article><article><b>5</b><div><h3>Build reports</h3><p>Add visuals and page filters. Click chart categories to cross-filter the current page.</p></div></article><article><b>6</b><div><h3>Ask Copilot</h3><p>Open Chat and type <code>@bi /sql</code> followed by your request.</p></div></article></div><h2>Known v0.1 boundaries</h2><ul class="limitations"><li>No PBIX reader/writer, DAX, or Power Query compatibility.</li><li>Database connector v0.1 is DuckDB; PostgreSQL, MySQL, SQLite, and ODBC are later.</li><li>Cross-filter propagation is same-table only.</li><li>Freeform drag/resize and PDF/PNG export are planned for v0.2.</li></ul></section>`;
+  <div class="help-steps"><article><b>1</b><div><h3>Create a project</h3><p>Select a parent folder. BI Workbench creates a documented JSON project and local DuckDB database.</p></div></article><article><b>2</b><div><h3>Import data</h3><p>Use Import for CSV, JSON, XLSX, Parquet, DuckDB, or SQLite. Source files are not modified.</p></div></article><article><b>3</b><div><h3>Query and clean</h3><p>Run bounded read-only SQL, inspect profiles, then create transactional derived tables.</p></div></article><article><b>4</b><div><h3>Model and calculate</h3><p>Configure labels, formats, relationships, and SQL measures. Definitions are validated before save.</p></div></article><article><b>5</b><div><h3>Build reports</h3><p>Edit visual fields, series, sort, format, size, and interaction. Related visuals follow valid relationship paths.</p></div></article><article><b>6</b><div><h3>Ask Copilot</h3><p>Use <code>@bi</code>; report and visual changes require confirmation and real query validation.</p></div></article></div><h2>Known v0.2 boundaries</h2><ul class="limitations"><li>No PBIX reader/writer, DAX, Power Query, or Power BI tenant compatibility.</li><li>PostgreSQL, MySQL, ODBC, and cloud connectors are not implemented.</li><li>No join/pivot transformation designer or cross-table measure planner.</li><li>Freeform pixel layout, undo/redo, maps, and PDF/PNG export remain planned.</li></ul></section>`;
 }
 
 function renderResultGrid(result: QueryResult): string {
@@ -216,12 +260,37 @@ function tableOptions(project: BiProject, selected?: string): string {
   return project.tables.map((table) => `<option value="${escapeAttribute(table.id)}" ${table.id === selected ? 'selected' : ''}>${escapeHtml(table.name)}</option>`).join('');
 }
 
-function columnOptions(table?: TableModel): string {
-  return table?.columns.map((column) => `<option value="${escapeAttribute(column.name)}">${escapeHtml(column.name)} · ${escapeHtml(column.dataType)}</option>`).join('') ?? '';
+function columnOptions(table?: TableModel, selected?: string): string {
+  return table?.columns.map((column) => `<option value="${escapeAttribute(column.name)}" ${column.name === selected ? 'selected' : ''}>${escapeHtml(column.displayName ?? column.name)} · ${escapeHtml(column.dataType)}</option>`).join('') ?? '';
 }
 
 function tableName(project: BiProject, tableId: string): string {
   return project.tables.find((table) => table.id === tableId)?.name ?? 'Missing table';
+}
+
+function columnDisplayName(project: BiProject, tableId: string, columnName: string): string {
+  return project.tables.find((table) => table.id === tableId)?.columns.find((column) => column.name === columnName)?.displayName ?? columnName;
+}
+
+function selectOptions(values: readonly string[], selected: string): string {
+  return values.map((value) => `<option value="${escapeAttribute(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(humanize(value))}</option>`).join('');
+}
+
+function humanize(value: string): string {
+  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase());
+}
+
+function formatVisualValue(visual: Visual, value: unknown, project: BiProject): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value !== 'number') return displayValue(value);
+  const measure = visual.measureId ? project.measures.find((item) => item.id === visual.measureId) : undefined;
+  const column = project.tables.find((table) => table.id === visual.tableId)?.columns.find((item) => item.name === visual.valueField);
+  const format = visual.numberFormat && visual.numberFormat !== 'auto' ? visual.numberFormat : measure?.format ?? column?.format ?? 'number';
+  const decimals = visual.decimals ?? 2;
+  if (format === 'integer') return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+  if (format === 'currency') return new Intl.NumberFormat(undefined, { style: 'currency', currency: visual.currency ?? 'EUR', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value);
+  if (format === 'percent') return new Intl.NumberFormat(undefined, { style: 'percent', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value);
+  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: decimals }).format(value);
 }
 
 function describeStep(step: TransformationStep): string {
@@ -233,6 +302,9 @@ function describeStep(step: TransformationStep): string {
     case 'fillNull': return `${step.column} = ${String(step.value ?? '')}`;
     case 'deduplicate': return 'all columns';
     case 'sort': return `${step.column} ${step.direction}`;
+    case 'replace': return `${step.column}: ${String(step.find)} → ${String(step.replacement)} (${step.mode})`;
+    case 'datePart': return `${step.part}(${step.column}) → ${step.newName}`;
+    case 'group': return `${step.groupBy.join(', ') || 'all rows'} · ${step.aggregations.map((aggregation) => `${aggregation.function}(${aggregation.column}) as ${aggregation.name}`).join(', ')}`;
   }
 }
 
@@ -242,8 +314,35 @@ function displayValue(value: unknown): string {
   return String(value);
 }
 
+function formatDisplayValue(value: unknown, format: string, currency: string, decimals: number): string {
+  if (value === null || value === undefined) return 'NULL';
+  if (format === 'date' || format === 'datetime') {
+    const date = value instanceof Date ? value : new Date(String(value));
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat(undefined, format === 'date' ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    }
+  }
+  const numeric = typeof value === 'number' ? value : typeof value === 'bigint' ? Number(value) : Number(String(value));
+  if (Number.isFinite(numeric)) {
+    if (format === 'currency') return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(numeric);
+    if (format === 'percent') return new Intl.NumberFormat(undefined, { style: 'percent', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(numeric);
+    if (format === 'integer') return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(numeric);
+    if (format === 'number') return new Intl.NumberFormat(undefined, { maximumFractionDigits: decimals }).format(numeric);
+  }
+  return displayValue(value);
+}
+
 function formatNumber(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+}
+
+function contrastTextColor(background: string): '#111827' | '#f3f4f6' {
+  const red = Number.parseInt(background.slice(1, 3), 16) / 255;
+  const green = Number.parseInt(background.slice(3, 5), 16) / 255;
+  const blue = Number.parseInt(background.slice(5, 7), 16) / 255;
+  const linear = [red, green, blue].map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+  const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
+  return luminance > 0.45 ? '#111827' : '#f3f4f6';
 }
 
 export function escapeHtml(value: string): string {

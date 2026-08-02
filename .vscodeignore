@@ -13,6 +13,11 @@ output/**
 dist/test/**
 **/*.map
 node_modules/@duckdb/node-api/**
+node_modules/sql.js/**
+!node_modules/sql.js/package.json
+!node_modules/sql.js/LICENSE
+!node_modules/sql.js/dist/sql-wasm.js
+!node_modules/sql.js/dist/sql-wasm.wasm
 *.ts
 tsconfig.json
 vitest.config.mts

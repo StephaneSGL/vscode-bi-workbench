@@ -1,8 +1,10 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { strToU8, zipSync } from 'fflate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import initSqlJs from 'sql.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DuckDbEngine } from '../../src/core/duckdbEngine.js';
 import { ImportService } from '../../src/core/importService.js';
 import { escapeSqlString } from '../../src/core/sql.js';
@@ -64,7 +66,46 @@ describe('ImportService', () => {
     expect(result.tables.map((table) => table.name)).toEqual(['alpha', 'beta']);
     expect(result.tables.every((table) => table.rowCount === 1)).toBe(true);
   });
+
+  it('copies populated and empty tables from a SQLite .db source without modifying it', async () => {
+    const moduleRequire = createRequire(path.join(process.cwd(), 'package.json'));
+    const SQL = await initSqlJs({ locateFile: (file) => path.join(path.dirname(moduleRequire.resolve('sql.js')), file) });
+    const sqlite = new SQL.Database();
+    sqlite.run('CREATE TABLE orders (id INTEGER, customer TEXT, amount REAL); INSERT INTO orders VALUES (1, \'A\', 12.5), (2, \'B\', 9.25); CREATE TABLE empty_items (id INTEGER, note TEXT)');
+    const sourcePath = path.join(directory, 'source.db');
+    const original = sqlite.export();
+    sqlite.close();
+    await writeFile(sourcePath, original, { mode: 0o600 });
+
+    const project = createEmptyProject('SQLite import');
+    const result = await service.importFile(project, { filePath: sourcePath, projectDirectory: directory });
+    expect(result.source.kind).toBe('sqlite');
+    expect(result.tables.map((table) => table.name)).toEqual(['empty_items', 'orders']);
+    expect(result.tables.find((table) => table.name === 'orders')?.rowCount).toBe(2);
+    expect(result.tables.find((table) => table.name === 'empty_items')?.columns.map((column) => column.name)).toEqual(['id', 'note']);
+    expect(await readBytes(sourcePath)).toEqual(original);
+  });
+
+  it('removes SQLite staging files when the target transaction fails', async () => {
+    const moduleRequire = createRequire(path.join(process.cwd(), 'package.json'));
+    const SQL = await initSqlJs({ locateFile: (file) => path.join(path.dirname(moduleRequire.resolve('sql.js')), file) });
+    const sqlite = new SQL.Database();
+    sqlite.run('CREATE TABLE private_rows (id INTEGER, value TEXT); INSERT INTO private_rows VALUES (1, \'sensitive\')');
+    const sourcePath = path.join(directory, 'failure.sqlite');
+    await writeFile(sourcePath, sqlite.export(), { mode: 0o600 });
+    sqlite.close();
+    vi.spyOn(engine, 'transaction').mockRejectedValueOnce(new Error('forced transaction failure'));
+
+    await expect(service.importFile(createEmptyProject('Failure cleanup'), { filePath: sourcePath, projectDirectory: directory }))
+      .rejects.toThrow(/forced transaction failure/);
+    const engineDirectory = path.join(directory, '.bi-workbench');
+    expect((await readdir(engineDirectory)).filter((file) => file.startsWith('sqlite-') && file.endsWith('.jsonl'))).toEqual([]);
+  });
 });
+
+async function readBytes(filePath: string): Promise<Uint8Array> {
+  return new Uint8Array(await readFile(filePath));
+}
 
 function minimalXlsx(): Uint8Array {
   const files: Record<string, Uint8Array> = {

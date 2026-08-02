@@ -32,4 +32,11 @@ describe('DuckDbEngine', () => {
     await expect(engine.queryReadOnly('CREATE TABLE bad(i INTEGER)', 10)).rejects.toThrow('Only SELECT');
     await expect(engine.queryReadOnly("SELECT * FROM read_csv('C:/secret.csv')", 10)).rejects.toThrow('not allowed');
   });
+
+  it('waits for an interrupted timeout before reusing the connection', async () => {
+    await expect(engine.queryReadOnly('SELECT SUM(i) FROM range(1000000000) AS generated(i)', 1, 1))
+      .rejects.toThrow('Query exceeded');
+    const recovered = await engine.queryReadOnly('SELECT 42 AS answer', 1);
+    expect(recovered.rows).toEqual([{ answer: 42 }]);
+  });
 });

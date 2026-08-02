@@ -1,151 +1,156 @@
 # Complete user-interface inventory
 
-This document is the product-level interface map. **Available** means the control works in v0.1.0. **Partial** means a smaller, explicitly described workflow works. **Planned** means it is documented but not presented as an enabled feature.
+This is the product-level interface map for v0.2.0. **Available** means the control invokes real host behavior and persists or queries real project state. **Partial** names the exact smaller workflow. **Planned** is not presented as an enabled control.
 
 ## 1. Activity Bar and project explorer
 
-- BI Workbench Activity Bar icon.
-- **Project** tree: imported/derived tables with row counts, source files with format, and saved queries.
-- **Semantic Model** tree: tables, columns, relationships, and measures.
-- **Reports** tree: reports, pages, and visuals.
-- Title actions: open workbench, import, save.
-- Empty-state actions: create or open a project.
-- Explorer context action to open a `*.bi.json` project file.
+- BI Workbench Activity Bar container.
+- **Project** tree: tables with row counts, sources with formats and saved queries.
+- **Semantic Model** tree: tables, physical/display columns, relationships and measures.
+- **Reports** tree: reports, pages and visuals.
+- Title actions for open workbench, import and save.
+- Empty-state create/open actions and Explorer action for `*.bi.json`.
 
-Status: **Available** for the three trees and navigation/title actions. Fine-grained tree context menus are **planned**.
+Status: **Available**. Fine-grained node context menus are **planned**.
 
 ## 2. Home screen
 
-- Product header and local/private execution indicator.
-- Create project and open project actions.
-- Recent projects from VS Code workspace state.
-- Quick-start cards: import data, run SQL, build a visual, ask `@bi`.
-- Current-project state: persisted/dirty status, table/row, relationship, measure, report, and page counts.
-- Dedicated settings and help pages; the help page links to the packaged README and logs.
+- Local/private execution identity, active project name and saved/dirty indicator.
+- Create/open/save actions and recent-project list.
+- Quick routes for import, query, reports and `@bi`.
+- Project counts for tables/rows, relationships, measures, reports and pages.
+- Links to Settings, packaged help and the output log.
 
-Status: **Available**. Database file size is **planned**.
+Status: **Available**. On-disk database-size telemetry is **planned**.
 
 ## 3. Import center
 
-- Multi-file picker for `.csv`, `.tsv`, `.json`, `.jsonl`, `.ndjson`, `.xlsx`, `.parquet`, `.duckdb`, and `.db`. In v0.1, `.db` means a DuckDB database, not SQLite.
-- Connector cards with exact support state. Unsupported future connectors are labelled and disabled.
-- CSV/JSON/Parquet type inference, all non-empty XLSX worksheets, and all base tables from a DuckDB file.
-- Busy indicator, success/error feedback, row counts after import, and actionable log details.
-- Duplicate target-name handling and safe identifier normalization.
+- Multi-file picker for `.csv`, `.tsv`, `.json`, `.jsonl`, `.ndjson`, `.xlsx`, `.parquet`, `.duckdb`, `.sqlite`, `.sqlite3` and `.db`.
+- `.db` files are dispatched by header: SQLite magic uses the portable SQLite reader; otherwise the DuckDB connector is attempted.
+- CSV/JSON/Parquet type inference, every non-empty XLSX sheet, every DuckDB base table and every SQLite user table, including empty tables.
+- Transactional target copy, normalized unique identifiers, preserved display names, busy state, row counts and actionable errors.
+- PostgreSQL/MySQL/ODBC cards are visible as **Planned** and disabled.
 
-Status: **Available** for the listed local formats, including every non-empty XLSX worksheet. Pre-import preview, worksheet selection, append/replace options, and user cancellation are **planned**. PostgreSQL/MySQL/SQLite/ODBC are **planned** connectors.
+Status: local file/database imports are **Available**. SQLite is read-only and capped at 512 MiB. Pre-import data preview, worksheet selection, append/replace policy and server connectors are **Planned**.
 
 ## 4. Data preview and profiling
 
-- Bounded scrollable grid with sticky headers.
-- Type badge, null count, distinct count, minimum/maximum, and numeric mean.
-- Horizontal scrolling and truncation-safe cell display.
-- Truncation warning when the configured preview limit is reached.
+- Table selection from navigation/tree.
+- Bounded scrollable grid with sticky typed headers and truncation-safe cells.
+- Row count, null count, distinct count, minimum, maximum and numeric mean.
+- Explicit warning when the preview limit is reached.
 
-Status: **Available** for bounded preview, schema, and summary profiling. Pagination, direct grid sort/filter, copy actions, selection-to-visual, and histograms are **planned**.
+Status: **Available**. Pagination, cell editing, grid sorting/filtering, histograms and selection-to-visual are **Planned**.
 
 ## 5. Query editor
 
-- DuckDB SQL editor, Run control, 30-second host timeout, execution time, and bounded-result warning.
-- Schema sidebar and insertion of quoted identifiers.
-- Result grid, sanitized error message/log entry, saved-query name, and saved-query list.
-- Export query result to CSV or JSON.
-- Read/write mode indicator. User queries in v0.1 are restricted to read-only statements; imports and transformations use internal controlled writes.
+- DuckDB SQL editor with Run and Cancel controls, execution duration and result-bound warning.
+- Schema sidebar with quoted-field insertion.
+- Read-only mode indicator, sanitized inline error, detailed output log, saved-query name/list and reload.
+- Formula-safe CSV and JSON result export.
 
-Status: **Available**. Explicit user cancellation, query history, and SQL language-service diagnostics are **planned**.
+Status: bounded read-only `SELECT`/`WITH` execution, timeout and DuckDB interruption are **Available**. Query history and SQL language-service diagnostics are **Planned**.
 
 ## 6. Cleaning and transformations
 
-- Source table selector and ordered transformation-step list.
-- Supported v0.1 operations: select columns, rename column, cast type, filter predicate, fill null, remove duplicates, and sort.
-- Explicit description of the deterministic CTE execution model.
-- Apply creates or replaces a derived table in a transaction.
-- Delete/clear steps and create a new derived table from the selected source.
-- Error banner/log reports the failing operation and keeps the previous valid table.
+- Source/target selectors and ordered recipe list.
+- Select columns, rename, cast, filter, fill null, deduplicate and sort.
+- Exact or substring replacement.
+- Year/quarter/month/week/day/day-of-week/hour extraction into a named column.
+- Group-by columns plus one or more parsed aggregate definitions.
+- Clear/remove steps and apply to a transactional derived table.
+- Failure retains the previous valid table and reports the exact operation.
 
-Status: **Available** for the listed deterministic operations. Step reordering, visual diff, fuzzy matching, pivot/unpivot, merge, and custom scripts are **planned**.
+Status: the listed transformations are **Available**. Join/merge, split, pivot/unpivot, step drag ordering, preview diff, fuzzy matching and custom scripts are **Planned**.
 
-## 7. Semantic model
+## 7. Semantic model and table presentation
 
-- Table cards with columns and types.
-- Relationship list/editor: from table/column, to table/column, cardinality, and filter direction.
-- Validation: referenced objects exist and type families are compatible.
-- Relationship metadata is exposed to Copilot so it can propose joins.
-- Diagram canvas with draggable nodes is planned after v0.1; the first version uses a precise list/form interface.
+- Table selector, physical name, editable display name and description.
+- Per-column physical/display name, description, semantic type, default display format and hidden flag.
+- Model summary cards using configured labels.
+- Relationship create/edit/delete: source/target table and column, cardinality, single/both filter direction and active flag.
+- Host validation for referenced objects, compatible types, duplicate relationships and invalid self-reference.
 
-Status: **Available** for relationship create/delete and validation. Relationship-aware report-query propagation and an interactive diagram are **planned**.
+Status: presentation metadata and relationship editing are **Available**. Active relationships drive direction-aware filter propagation across unique multi-hop paths. A draggable diagram canvas is **Planned**.
 
 ## 8. Measures and calculations
 
-- Name, description, home table, format, and DuckDB SQL aggregate expression.
-- Validate against a bounded generated query before save.
-- Measure list and preview result.
-- Measures are reusable in visuals.
-- No claim of DAX compatibility.
+- Create and edit name, description, home table, number format and DuckDB SQL aggregate expression.
+- Cancel editing, delete and reuse in visuals.
+- Execute a bounded validation query before commit and show a preview value.
 
-Status: **Available**.
+Status: **Available**, limited to safe SQL aggregate expressions. DAX and cross-table measure expressions are not supported.
 
-## 9. Report manager and dashboard canvas
+## 9. Report manager
 
-- Report and page tabs, add/delete operations, and dirty/saved indicator.
-- Responsive grid canvas.
-- Add visual button and visual configuration form.
-- Visual title, table source, category field, value field or measure, aggregation, chart type, table columns, and row/category limit.
-- Visual removal and page-level clear-interactions action.
+- Report/page tabs with add/delete, active selection and saved/dirty state.
+- Expandable report/page settings for editable names and descriptions.
+- Deterministic responsive 12-column dashboard grid.
+- Visual create/edit/duplicate/delete, move-left/right, drag reorder and persisted width/height fields.
+- Export active page and clear temporary interactions.
 
-Status: **Available** with a responsive deterministic grid. Renaming, visual editing/duplication, per-visual data export, saved-query visual sources, and freeform drag/resize are **planned**.
+Status: **Available**. Pixel-free placement, mouse resize handles and undo/redo are **Planned**.
 
-## 10. Visualizations
+## 10. Visual builder and renderers
 
-- v0.1: table, KPI, vertical bar, horizontal bar, line, area, pie/donut, scatter, and categorical slicer.
-- Tooltips, legend, accessible labels, theme adaptation, resize handling, and empty/error states.
-- Later: combo, waterfall, treemap, heatmap, map, funnel, gauge, boxplot, histogram, and custom Vega-Lite specifications.
+- Types: table, KPI, vertical bar, horizontal bar, line, area, pie, donut, scatter and categorical slicer.
+- Title and accessible description.
+- Source table, category/X, optional series, value/Y or measure, aggregation and row/category limit.
+- Table-column checkboxes and explicit physical-name column order.
+- Sort field, category/value/automatic sort and ascending/descending direction.
+- Width `1–12`, height `2–12`, custom primary/background colors and project theme palette.
+- Legend visibility/position, data labels, line smoothing and interaction mode.
+- Auto/number/integer/currency/percent/date/datetime/text format, ISO currency and decimal precision.
+- Tooltips, resize handling, theme adaptation, empty/error state and screen-reader description.
+- Per-visual CSV data export.
 
-## 11. Filters, slicers, and interactions
+Status: all listed configuration persists and is **Available**. A visual's real bounded query must succeed before its metadata is committed. Maps, combo/waterfall/treemap/heatmap/funnel/gauge/boxplot/histogram and custom Vega-Lite are **Planned**.
 
-- Page filter bar: table, column, operator, and value.
-- Operators: equals, not equals, contains, greater/less than, between, is null, is not null.
-- Slicer visual for distinct values.
-- Clicking a chart category creates a temporary cross-filter for other visuals on the same page.
-- Active-filter chips and Clear all.
+## 11. Filters, slicers and visual interactions
 
-Status: **Available** for page filters, clickable categorical slicers, chart clicks, temporary filter chips, and same-table recomputation. Relationship-propagated cross-filtering is **planned**.
+- Page-filter bar with table, column, operator, value and optional second value.
+- Operators: equals, not equals, contains, greater/less than, inclusive comparisons, between, is null and is not null.
+- Active filter chips, individual removal and clear temporary interactions.
+- Categorical slicer buttons and chart-category clicks.
+- Per-visual interaction mode `filter` or `none`.
+- Same-table predicates and related-table propagation along direction-compatible active relationships.
+
+Status: **Available**. If two equally short relationship paths could propagate a filter, the query fails with an ambiguity error rather than choosing silently.
 
 ## 12. Export
 
-- Query/table data to CSV and JSON with spreadsheet-formula injection protection for CSV.
-- Active report page to standalone HTML containing bounded exported data and dependency-free table/KPI/SVG/CSS renderers.
-- Project metadata remains JSON and the data database remains DuckDB.
-- PDF and PNG export follow later after deterministic browser rendering is validated.
+- Query results to CSV or JSON.
+- Individual visual data to CSV.
+- Active report page to standalone HTML with bounded data and dependency-free table/KPI/SVG/CSS renderers.
+- Project metadata remains JSON; imported/derived data remains DuckDB.
 
-Status: **Available** for CSV, JSON, and HTML. HTML is a static portable snapshot, not a live database connection. PDF and PNG are **planned**.
+Status: **Available** for the listed formats. HTML is a static snapshot, not a live database connection. Per-visual JSON, PDF and PNG UI actions are **Planned**.
 
-## 13. Settings
+## 13. Settings and themes
 
-- Preview and query row limits.
-- Auto-save.
-- Copilot sharing level: schema, aggregates, or samples.
-- Maximum Copilot sample rows.
-- Open VS Code Settings button and inline privacy explanation.
+- Preview/query row limits, auto-save, Copilot sharing level and maximum sample rows.
+- Open VS Code Settings action and inline sensitive-data warning.
+- Project theme name, primary color, dashboard background and comma-separated chart palette.
 
 Status: **Available**.
 
 ## 14. GitHub Copilot integration
 
-- `@bi` chat expert with `/sql`, `/analyze`, `/report`, and `/visual` commands.
-- Project-schema tool `#biProjectSchema`.
-- Bounded read-only query tool `#biQuery`, governed by sharing settings.
-- The selected Copilot/model provider performs inference; BI Workbench does not include an API key or proxy.
-- Generated content is a proposal. It is never executed as a write automatically.
+- `@bi` chat participant with `/sql`, `/analyze`, `/report` and `/visual` commands.
+- `#biProjectSchema` for raw-row-free semantic metadata.
+- `#biQuery` for confirmed bounded read-only queries allowed by the sharing setting.
+- `#biCreateReport` for confirmed report/first-page creation with exact returned IDs.
+- `#biConfigureVisual` for confirmed create/update after schema parsing and real query validation.
+- Tool-result loop feeds exact success/error JSON back to the selected model; instructions prohibit unproven claims of application.
 
-Status: **Available** when VS Code exposes a language model to the user. The extension does not bundle a Copilot subscription or model entitlement.
+Status: **Available** when VS Code exposes an eligible language model. The extension bundles no Copilot subscription, model, API key or proxy. Copilot cannot currently apply measures or transformation recipes.
 
-## 15. Errors, logs, and help
+## 15. Errors, logging and help
 
-- Non-blocking toast for completed actions.
-- Workbench error banner with operation, sanitized message, and recovery action.
-- `BI Workbench` output channel with timestamps and stack traces; no raw row values or credentials.
-- Import/query errors preserve the last valid project state.
-- Help command opens the packaged README; settings and log commands remain available when no project is open.
+- Started/finished/failed operation state and non-blocking success/error toasts.
+- Persistent workbench error banner with sanitized message.
+- `BI Workbench` output channel with timestamps and stack traces, excluding credentials/raw result rows.
+- Cancel action for an active query and rollback for failed import/transformation mutations.
+- Help screen with the complete first workflow, current limits, full packaged README, Settings and Logs actions.
 
 Status: **Available**.

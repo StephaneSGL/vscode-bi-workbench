@@ -14,6 +14,7 @@ describe('exports', () => {
     const html = createStandaloneReportHtml(page, [{ visualId: 'v', columns: [], rows: [{ value: 42 }], truncated: false }], 'Retail');
     expect(html).toContain('<!doctype html>');
     expect(html).toContain('&lt;Page&gt;');
+    expect(html).toContain('Content-Security-Policy');
     expect(html).not.toMatch(/<script[^>]+src=/);
     expect(html).not.toMatch(/<link[^>]+href=/);
   });

@@ -1,6 +1,6 @@
 # Third-party notices
 
-Runtime libraries used by BI Workbench v0.1.0, including libraries integrated into the JavaScript bundles:
+Runtime libraries used by BI Workbench v0.2.0, including libraries integrated into the JavaScript bundles:
 
 | Package | Version | License | Project |
 | --- | ---: | --- | --- |
@@ -12,6 +12,7 @@ Runtime libraries used by BI Workbench v0.1.0, including libraries integrated in
 | `tslib` | 2.3.0 | 0BSD | https://github.com/microsoft/tslib |
 | `read-excel-file` | 8.0.3 | MIT | https://gitlab.com/catamphetamine/read-excel-file |
 | `zod` | 4.4.3 | MIT | https://github.com/colinhacks/zod |
+| `sql.js` | 1.14.1 | MIT | https://github.com/sql-js/sql.js |
 
 The XLSX reader's bundled transitive libraries are `@xmldom/xmldom`, `fflate`, `unzipper`, `bluebird`, `duplexer2`, `fs-extra`, `graceful-fs`, `node-int64`, and `universalify`; their exact versions and license texts are included in `THIRD_PARTY_LICENSES.txt`.
 

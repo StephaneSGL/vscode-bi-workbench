@@ -26,10 +26,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerCopilotParticipant(context, controller.manager, controller.logger);
   registerCopilotTools(context, controller.manager);
-  controller.logger.info('BI Workbench 0.1.0 activated. No telemetry is collected.');
+  controller.logger.info('BI Workbench 0.2.0 activated. No telemetry is collected.');
 }
 
-export function deactivate(): void {
-  controller?.dispose();
+export async function deactivate(): Promise<void> {
+  const activeController = controller;
   controller = undefined;
+  await activeController?.shutdown();
 }

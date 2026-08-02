@@ -14,4 +14,18 @@ describe('webview message validation', () => {
     }).success).toBe(true);
     expect(WebviewRequestSchema.safeParse({ type: 'deleteEverything' }).success).toBe(false);
   });
+
+  it('validates table presentation, visual ordering, and theme requests', () => {
+    expect(WebviewRequestSchema.safeParse({
+      type: 'updateTablePresentation',
+      tableId: 'sales',
+      presentation: {
+        name: 'Sales',
+        description: '',
+        columns: [{ name: 'amount', displayName: 'Revenue', description: '', hidden: false, semanticType: 'measure', format: 'currency' }]
+      }
+    }).success).toBe(true);
+    expect(WebviewRequestSchema.safeParse({ type: 'reorderVisual', reportId: 'r', pageId: 'p', visualId: 'v', toIndex: -1 }).success).toBe(false);
+    expect(WebviewRequestSchema.safeParse({ type: 'updateTheme', theme: { name: 'Bad', primaryColor: 'blue', palette: ['#123456'] } }).success).toBe(false);
+  });
 });

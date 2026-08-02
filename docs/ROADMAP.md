@@ -1,51 +1,58 @@
 # Release scope and roadmap
 
-## v0.1.0 — local usable foundation
+## v0.2.0 — configurable local BI workbench
 
-The release is complete only if all listed items pass automated tests and a packaged VSIX activation check.
+The release is considered usable only when its automated suites, real-browser QA, clean Extension Host, packaged VSIX and installed identity all pass.
 
-- Create, open, validate, and atomically save a schema-versioned BI project.
-- Persistent embedded DuckDB database.
-- Import CSV/TSV, JSON/JSONL, Parquet, XLSX, and tables from a DuckDB file.
-- Table schema, bounded preview, and column profiles.
-- Read-only DuckDB SQL editor, saved queries, bounded results, timeout, and CSV/JSON export.
-- Transformation recipes: select, rename, cast, filter, fill null, deduplicate, sort.
-- Relationships with reference/type validation.
-- Reusable SQL aggregate measures with validation.
-- Reports/pages with table, KPI, bar, horizontal bar, line, area, pie/donut, and scatter visuals.
-- Page filters, slicers, same-table chart cross-filtering, and active-filter chips.
-- Standalone bounded HTML report export.
-- Activity Bar project/model/report explorers.
-- `@bi` Copilot participant and schema/read-only query tools with privacy levels.
-- Output logs, actionable workbench errors, packaged help, and settings.
-- Unit, integration, UI, extension activation, package, and installation checks.
+Completed scope:
 
-The v0.1 schema is validated but has no migration from another released schema because this is the first schema version.
+- Schema-v2 project format with deterministic v1 migration and pre-migration backup.
+- Editable table and column presentation: names, descriptions, visibility, semantic types and formats.
+- CSV/TSV, JSON/JSONL/NDJSON, Parquet, XLSX, DuckDB and read-only SQLite imports; `.db` header detection; transactional copies.
+- Bounded/cancellable read-only SQL, saved queries, profiles and CSV/JSON export.
+- Transactional transformations: select, rename, cast, filter, fill-null, deduplicate, sort, exact/substring replace, date parts and group/aggregate.
+- Editable validated relationships and SQL aggregate measures.
+- Direction-aware, multi-hop relationship filter propagation with ambiguity rejection.
+- Editable report/page names and descriptions.
+- Visual create/edit/duplicate/delete/reorder, arrow and drag ordering, configurable 12-column width and height.
+- Table, KPI, bar, horizontal bar, line, area, pie, donut, scatter and slicer renderers.
+- Multi-series queries, category/value/custom-field sorting, colors, backgrounds, report themes, legend placement, labels, smoothing, number/currency/percent formatting and accessible descriptions.
+- Page filters, chart/slicer interactions, temporary chips and clear-interaction action.
+- Query CSV/JSON, per-visual CSV and standalone static HTML exports.
+- `@bi` participant with a bounded tool loop; schema/query tools plus confirmation-gated report creation and validated visual application.
+- Unit, integration, DOM UI, Chromium, Extension Host, package, install, dependency, license and secret-scan gates.
 
-## v0.2
+Explicit v0.2 limits:
 
-- Drag/resize dashboard grid with undo/redo and keyboard accessibility.
-- Relationship-aware filter propagation and generated multi-table queries.
-- SQLite and PostgreSQL connectors with VS Code SecretStorage credentials.
-- More transformation operations: join, group, pivot/unpivot, split, replace, date parts.
-- Chart theming, annotations, conditional formatting, and richer accessibility descriptions.
+- Windows x64 is the only packaged/installed platform with release evidence.
+- No server database connector, join/pivot designer, cross-table measure planner, map, undo/redo, freeform pixel canvas or PDF/PNG export.
+- No PBIX, DAX, Power Query M or Power BI tenant compatibility.
+
+## v0.3 — data shaping and delivery
+
+- PostgreSQL connector with TLS configuration, cancellation and VS Code SecretStorage credentials.
+- Join/merge, split, pivot/unpivot and step reordering with preview/diff.
+- Query history, richer SQL diagnostics and virtualized large-result grid.
 - PNG/PDF export through deterministic browser rendering.
-- Signed release artifacts and Marketplace/Open VSX publication preparation.
+- Undo/redo transaction journal for semantic and report edits.
+- Mouse resize handles and keyboard-accessible grid placement.
+- Conditional formatting, annotations, combo/waterfall/treemap/heatmap/funnel/histogram visuals.
+- Copilot tools for validated measure creation and transformation-plan preview/apply.
+- Signed artifacts and Marketplace/Open VSX publication preparation.
 
-## v0.3
+## v0.4 — connectors and reusable assets
 
-- MySQL and ODBC connectors; optional Arrow/Parquet cache policies.
-- Row-level project roles and parameterized data sources.
-- Incremental refresh recipes and scheduled CLI/CI refresh.
-- Reusable visual templates and report themes.
-- Optional PBIR/TMDL import/export adapter based only on public Microsoft schemas.
-- Copilot-generated report plans with explicit preview/diff/apply workflow.
+- MySQL and ODBC connectors with the same credential and threat-model gates.
+- Parameterized sources, refresh recipes, incremental cache policies and CLI/CI refresh.
+- Reusable visual templates and importable report themes.
+- Row-level project policies with a documented local enforcement model.
+- Optional PBIR/TMDL adapter based only on Microsoft-published schemas.
 
 ## v1.0 criteria
 
-- Stable project schema and migration guarantees.
-- Cross-platform packaged validation on Windows, Linux, and macOS.
-- Connector threat model and credential lifecycle audit.
-- Large-data benchmarks, cancellation, memory ceilings, and recovery tests.
-- Accessibility audit, localization, documented extension API, and reproducible releases.
-- No unsupported feature represented as complete.
+- Stable public project schema with forward migration guarantees and recovery tests.
+- Packaged Extension Host and installation validation on Windows, Linux and macOS.
+- Connector threat model, credential lifecycle and transport-security audit.
+- Large-data benchmarks, cancellation coverage, memory ceilings and corruption recovery.
+- Accessibility audit, keyboard-complete report editing and localization.
+- Reproducible signed releases, documented extension API and no unsupported feature represented as complete.

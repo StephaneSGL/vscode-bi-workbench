@@ -1,6 +1,6 @@
 # Existing solutions and technical positioning
 
-Research date: 2026-08-01.
+Research updated: 2026-08-02.
 
 BI Workbench is an independent, local-first VS Code extension. It is not a Microsoft product and does not reuse Microsoft Power BI code, assets, or branding.
 
@@ -20,6 +20,7 @@ BI Workbench is an independent, local-first VS Code extension. It is not a Micro
 | Component | Selection | Reason | License |
 | --- | --- | --- | --- |
 | Analytical database | [DuckDB Node API](https://www.npmjs.com/package/@duckdb/node-api) | Embedded OLAP SQL engine; no separate server; persistent single-file database; native Promise API; Windows, Linux, and macOS binaries. | MIT |
+| Portable SQLite reader | [`sql.js`](https://github.com/sql-js/sql.js/) | Bundles SQLite compiled to WebAssembly, opens source bytes read-only in the extension workflow, and avoids depending on a runtime extension download. | MIT |
 | File ingestion | [DuckDB CSV/JSON readers](https://duckdb.org/docs/current/data/overview) and [XLSX reader](https://duckdb.org/docs/current/guides/file_formats/excel_import) | Type inference and bulk ingestion without a Python service. XLSX is supported; legacy XLS is not. | MIT (DuckDB) |
 | Visualizations | [Apache ECharts](https://echarts.apache.org/en/) | Mature Canvas/SVG rendering, interaction events, accessibility options, and more than twenty chart families. | Apache-2.0 |
 | Extension UI | VS Code webview + theme variables | Full control over a report canvas while matching the host theme and keeping data local. | VS Code API terms; project code MIT |
@@ -32,7 +33,7 @@ The goal is functional similarity at the workflow level, not binary or visual co
 
 ### Technically reasonable to implement independently
 
-- Import CSV, JSON, XLSX, DuckDB, and selected databases through documented connectors.
+- Import CSV, JSON, XLSX, DuckDB, SQLite, and selected future databases through documented connectors.
 - Local SQL query editor, result preview, profiling, and repeatable transformation steps.
 - Tables, typed columns, relationships, and original SQL-based measures.
 - Report pages, interactive charts, tables, KPI cards, filters, slicers, and cross-filtering.
@@ -43,8 +44,8 @@ The goal is functional similarity at the workflow level, not binary or visual co
 
 ### Possible later, with important constraints
 
-- PostgreSQL, MySQL, SQLite, ODBC, and cloud warehouses: each connector needs credential storage, cancellation, TLS, and driver-specific tests.
-- PBIP/PBIR/TMDL interoperability: only documented schemas should be used. Microsoft documents PBIR as externally editable, but BI Workbench v0.1 does not claim Power BI compatibility.
+- PostgreSQL, MySQL, ODBC, and cloud warehouses: each connector needs credential storage, cancellation, TLS, and driver-specific tests.
+- PBIP/PBIR/TMDL interoperability: only documented schemas should be used. Microsoft documents PBIR as externally editable, but BI Workbench does not claim Power BI compatibility.
 - Power BI REST/Fabric integration: requires Microsoft identity, tenant permissions, API throttling handling, and the user's applicable Microsoft licensing. The [Power BI REST API documentation](https://learn.microsoft.com/en-us/rest/api/power-bi/) describes those permissions and service boundaries.
 - Row-level security, incremental refresh, scheduled refresh, and shared deployments: these require a security model and usually a server/runtime.
 
@@ -62,6 +63,10 @@ The goal is functional similarity at the workflow level, not binary or visual co
 - Dependencies are permissively licensed; their notices are recorded in `THIRD_PARTY_NOTICES.md`.
 - The project format and implementation are original. Public PBIR/TMDL support, if added, will be isolated as an optional adapter based only on Microsoft-published schemas and documentation.
 - This is an engineering risk assessment, not legal advice. A trademark/licensing review is still appropriate before commercial distribution.
+
+## SQLite implementation decision
+
+DuckDB documents a SQLite extension, but extension autoload can require a network download in a fresh installation. BI Workbench v0.2 instead bundles permissively licensed `sql.js` and copies user tables into DuckDB transactionally. This makes offline behavior testable and leaves the source untouched. The tradeoff is explicit: `sql.js` loads the database into memory, so the connector rejects sources above 512 MiB and recommends Parquet or DuckDB for larger inputs.
 
 ## Conclusion
 

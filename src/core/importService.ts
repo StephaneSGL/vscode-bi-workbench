@@ -1,9 +1,19 @@
-import { stat, writeFile, rm } from 'node:fs/promises';
+import { Buffer } from 'node:buffer';
+import { open, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import readXlsxFile from 'read-excel-file/node';
+import initSqlJs from 'sql.js';
 import type { BiProject, DataSource, SourceKind, TableModel } from '../shared/project.js';
 import type { DuckDbEngine, DuckDbTransaction } from './duckdbEngine.js';
 import { escapeSqlString, quoteIdentifier, uniquePhysicalName } from './sql.js';
+
+interface RuntimeRequire {
+  (id: string): unknown;
+  resolve(id: string): string;
+}
+
+declare const require: RuntimeRequire | undefined;
 
 export interface ImportOptions {
   filePath: string;
@@ -26,7 +36,10 @@ export class ImportService {
       throw new Error(`Import source is not a file: ${absolutePath}`);
     }
 
-    const kind = this.detectKind(absolutePath);
+    const kind = await this.detectKind(absolutePath);
+    if (kind === 'sqlite' && sourceStat.size > 512 * 1024 * 1024) {
+      throw new Error('SQLite imports are limited to 512 MiB because the portable reader loads the source in memory. Export large tables to Parquet or DuckDB first.');
+    }
     const source: DataSource = {
       id: crypto.randomUUID(),
       kind,
@@ -41,6 +54,8 @@ export class ImportService {
       importedPhysicalNames = await this.importWorkbook(absolutePath, options.targetName, existingNames);
     } else if (kind === 'duckdb') {
       importedPhysicalNames = await this.importDuckDb(absolutePath, options.targetName, existingNames);
+    } else if (kind === 'sqlite') {
+      importedPhysicalNames = await this.importSqlite(absolutePath, options.targetName, existingNames);
     } else {
       const displayName = options.targetName?.trim() || path.basename(absolutePath, path.extname(absolutePath));
       const physicalName = uniquePhysicalName(displayName, existingNames);
@@ -67,7 +82,7 @@ export class ImportService {
     return { source, tables };
   }
 
-  private detectKind(filePath: string): SourceKind {
+  private async detectKind(filePath: string): Promise<SourceKind> {
     const extension = path.extname(filePath).toLowerCase();
     switch (extension) {
       case '.csv':
@@ -84,16 +99,20 @@ export class ImportService {
       case '.xlsx':
         return 'xlsx';
       case '.duckdb':
-      case '.db':
         return 'duckdb';
+      case '.sqlite':
+      case '.sqlite3':
+        return 'sqlite';
+      case '.db':
+        return await this.hasSqliteHeader(filePath) ? 'sqlite' : 'duckdb';
       default:
         throw new Error(`Unsupported import format: ${extension || '(none)'}.`);
     }
   }
 
-  private async importSingleFile(kind: Exclude<SourceKind, 'xlsx' | 'duckdb'>, filePath: string, tableName: string): Promise<void> {
+  private async importSingleFile(kind: Exclude<SourceKind, 'xlsx' | 'duckdb' | 'sqlite'>, filePath: string, tableName: string): Promise<void> {
     const target = quoteIdentifier(tableName);
-    const statements: Record<Exclude<SourceKind, 'xlsx' | 'duckdb'>, string> = {
+    const statements: Record<Exclude<SourceKind, 'xlsx' | 'duckdb' | 'sqlite'>, string> = {
       csv: `CREATE TABLE ${target} AS SELECT * FROM read_csv(?, header = true, sample_size = -1, strict_mode = true)`,
       tsv: `CREATE TABLE ${target} AS SELECT * FROM read_csv(?, header = true, delim = '\t', sample_size = -1, strict_mode = true)`,
       json: `CREATE TABLE ${target} AS SELECT * FROM read_json_auto(?, union_by_name = true)`,
@@ -244,6 +263,110 @@ export class ImportService {
     });
   }
 
+  private async importSqlite(
+    filePath: string,
+    requestedName: string | undefined,
+    existingNames: Set<string>
+  ): Promise<{ physicalName: string; displayName: string }[]> {
+    const databasePath = this.engine.path;
+    if (!databasePath) {
+      throw new Error('No BI project database is open.');
+    }
+    const SQL = await loadSqlJs();
+    const sourceBytes = await readFile(filePath);
+    const database = new SQL.Database(new Uint8Array(sourceBytes));
+    const tempFiles: string[] = [];
+    const definitions: {
+      physicalName: string;
+      displayName: string;
+      tempFile?: string;
+      emptyColumns: { name: string; type: string }[];
+    }[] = [];
+
+    try {
+      const tableResult = database.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")[0];
+      const sourceTables = tableResult?.values.map((row) => String(row[0] ?? '')).filter(Boolean) ?? [];
+      if (sourceTables.length === 0) {
+        throw new Error('The SQLite source contains no user tables.');
+      }
+
+      for (const sourceTable of sourceTables) {
+        const displayName = requestedName
+          ? sourceTables.length === 1 ? requestedName : `${requestedName} - ${sourceTable}`
+          : sourceTable;
+        const physicalName = uniquePhysicalName(displayName, existingNames);
+        existingNames.add(physicalName);
+        const statement = database.prepare(`SELECT * FROM ${quoteSqliteIdentifier(sourceTable)}`);
+        const columns = statement.getColumnNames();
+        const tempFile = path.join(path.dirname(databasePath), `sqlite-${crypto.randomUUID()}.jsonl`);
+        const handle = await open(tempFile, 'wx', 0o600);
+        tempFiles.push(tempFile);
+        let rowCount = 0;
+        let pending = '';
+        try {
+          while (statement.step()) {
+            const raw = statement.getAsObject();
+            const row: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+            for (const column of columns) {
+              row[column] = normalizeSqliteValue(raw[column] ?? null);
+            }
+            pending += `${JSON.stringify(row)}\n`;
+            rowCount += 1;
+            if (pending.length >= 1024 * 1024) {
+              await handle.appendFile(pending, 'utf8');
+              pending = '';
+            }
+          }
+          if (pending) {
+            await handle.appendFile(pending, 'utf8');
+          }
+        } finally {
+          statement.free();
+          await handle.close();
+        }
+
+        if (rowCount > 0) {
+          definitions.push({ physicalName, displayName, tempFile, emptyColumns: [] });
+        } else {
+          await rm(tempFile, { force: true });
+          definitions.push({ physicalName, displayName, emptyColumns: sqliteTableColumns(database, sourceTable) });
+        }
+      }
+
+      await this.engine.transaction(async (transaction) => {
+        for (const definition of definitions) {
+          if (definition.tempFile) {
+            await transaction.run(
+              `CREATE TABLE ${quoteIdentifier(definition.physicalName)} AS SELECT * FROM read_json_auto(?, format = 'newline_delimited', union_by_name = true)`,
+              [definition.tempFile]
+            );
+          } else {
+            const columnsSql = definition.emptyColumns.map((column) => `${quoteIdentifier(column.name)} ${sqliteTypeToDuckDb(column.type)}`).join(', ');
+            if (!columnsSql) {
+              throw new Error(`SQLite table "${definition.displayName}" has no columns.`);
+            }
+            await transaction.run(`CREATE TABLE ${quoteIdentifier(definition.physicalName)} (${columnsSql})`);
+          }
+        }
+      });
+      return definitions.map(({ physicalName, displayName }) => ({ physicalName, displayName }));
+    } finally {
+      database.close();
+      await Promise.all(tempFiles.map(async (tempFile) => rm(tempFile, { force: true })));
+    }
+  }
+
+  private async hasSqliteHeader(filePath: string): Promise<boolean> {
+    const handle = await open(filePath, 'r');
+    try {
+      const header = Buffer.alloc(16);
+      const { bytesRead } = await handle.read(header, 0, header.length, 0);
+      return bytesRead === header.length && header.toString('utf8') === 'SQLite format 3\0';
+    } finally {
+      await handle.close();
+    }
+  }
+
   private uniqueColumnNames(headers: readonly string[]): string[] {
     const used = new Set<string>();
     return headers.map((header, index) => {
@@ -265,6 +388,47 @@ export class ImportService {
       ? relative.replaceAll(path.sep, '/')
       : sourcePath;
   }
+}
+
+let sqlJsRuntime: ReturnType<typeof initSqlJs> | undefined;
+
+function loadSqlJs(): ReturnType<typeof initSqlJs> {
+  const runtimeRequire = typeof require === 'function'
+    ? require
+    : createRequire(path.join(process.cwd(), 'bi-workbench-runtime.cjs'));
+  sqlJsRuntime ??= initSqlJs({
+    locateFile: (file) => path.join(path.dirname(runtimeRequire.resolve('sql.js')), file)
+  });
+  return sqlJsRuntime;
+}
+
+function quoteSqliteIdentifier(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function normalizeSqliteValue(value: initSqlJs.SqlValue): unknown {
+  return value instanceof Uint8Array ? Buffer.from(value).toString('base64') : value;
+}
+
+function sqliteTableColumns(database: initSqlJs.Database, table: string): { name: string; type: string }[] {
+  const result = database.exec(`PRAGMA table_info(${quoteSqliteIdentifier(table)})`)[0];
+  if (!result) return [];
+  const nameIndex = result.columns.indexOf('name');
+  const typeIndex = result.columns.indexOf('type');
+  return result.values.map((row) => ({
+    name: String(row[nameIndex] ?? ''),
+    type: String(row[typeIndex] ?? '')
+  })).filter((column) => Boolean(column.name));
+}
+
+function sqliteTypeToDuckDb(type: string): string {
+  const normalized = type.toUpperCase();
+  if (normalized.includes('INT')) return 'BIGINT';
+  if (/(CHAR|CLOB|TEXT)/.test(normalized)) return 'VARCHAR';
+  if (normalized.includes('BLOB') || !normalized) return 'BLOB';
+  if (/(REAL|FLOA|DOUB|NUMERIC|DECIMAL)/.test(normalized)) return 'DOUBLE';
+  if (normalized.includes('BOOL')) return 'BOOLEAN';
+  return 'VARCHAR';
 }
 
 export async function detachIfPresent(transaction: DuckDbTransaction, alias: string): Promise<void> {

@@ -2,7 +2,7 @@
   "name": "vscode-bi-workbench",
   "displayName": "BI Workbench",
   "description": "Local-first business intelligence projects, SQL analytics, semantic models, interactive dashboards, and GitHub Copilot assistance inside VS Code.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "stephanesgl",
   "license": "MIT",
   "homepage": "https://github.com/StephaneSGL/vscode-bi-workbench#readme",
@@ -192,7 +192,7 @@
           ],
           "enumDescriptions": [
             "Share only table, column, relationship, measure, and report metadata.",
-            "Also share locally computed aggregate summaries without raw rows.",
+            "Also share bounded aggregate summaries. Group keys and order statistics can still disclose individual values.",
             "Also share a bounded sample of raw rows. This can disclose sensitive values to the selected model provider."
           ],
           "default": "schema",
@@ -274,7 +274,7 @@
       {
         "name": "vscode-bi-workbench_queryProject",
         "displayName": "Query BI Project",
-        "modelDescription": "Executes one bounded, read-only SELECT or WITH query against the active BI Workbench project. The tool refuses raw-row disclosure unless the user selected aggregates or samples in BI Workbench settings.",
+        "modelDescription": "Executes one bounded read-only query against the active BI Workbench project. It is disabled in schema mode; aggregate mode accepts a conservative aggregate-only SELECT shape, while samples mode permits bounded raw rows.",
         "userDescription": "Run a bounded read-only query against the active BI project",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "biQuery",
@@ -296,6 +296,234 @@
             "purpose"
           ]
         }
+      },
+      {
+        "name": "vscode-bi-workbench_configureVisual",
+        "displayName": "Configure BI Visual",
+        "modelDescription": "Creates or updates one BI Workbench visual after explicit user confirmation. The extension validates the complete configuration and executes the bounded DuckDB visual query before committing it.",
+        "userDescription": "Apply a validated chart or table configuration to a report page",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "biConfigureVisual",
+        "icon": "$(graph)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reportId": {
+              "type": "string",
+              "description": "Existing report ID from the BI project schema tool."
+            },
+            "pageId": {
+              "type": "string",
+              "description": "Existing page ID from the BI project schema tool."
+            },
+            "purpose": {
+              "type": "string",
+              "description": "Short explanation of the analytical purpose."
+            },
+            "visual": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Use a new UUID to add, or an existing visual ID to update."
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "table",
+                    "kpi",
+                    "bar",
+                    "horizontalBar",
+                    "line",
+                    "area",
+                    "pie",
+                    "donut",
+                    "scatter",
+                    "slicer"
+                  ]
+                },
+                "tableId": {
+                  "type": "string"
+                },
+                "categoryField": {
+                  "type": "string"
+                },
+                "seriesField": {
+                  "type": "string"
+                },
+                "valueField": {
+                  "type": "string"
+                },
+                "measureId": {
+                  "type": "string"
+                },
+                "aggregation": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "count",
+                    "countDistinct",
+                    "sum",
+                    "avg",
+                    "min",
+                    "max"
+                  ]
+                },
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 12
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 12
+                },
+                "sortField": {
+                  "type": "string"
+                },
+                "sortBy": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "category",
+                    "value"
+                  ]
+                },
+                "sortDirection": {
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ]
+                },
+                "color": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "backgroundColor": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "showLegend": {
+                  "type": "boolean"
+                },
+                "legendPosition": {
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "right",
+                    "bottom",
+                    "left"
+                  ]
+                },
+                "showLabels": {
+                  "type": "boolean"
+                },
+                "smooth": {
+                  "type": "boolean"
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "number",
+                    "integer",
+                    "currency",
+                    "percent",
+                    "date",
+                    "datetime",
+                    "text"
+                  ]
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "decimals": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 6
+                },
+                "interactionMode": {
+                  "type": "string",
+                  "enum": [
+                    "filter",
+                    "none"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "type",
+                "tableId"
+              ]
+            }
+          },
+          "required": [
+            "reportId",
+            "pageId",
+            "purpose",
+            "visual"
+          ]
+        }
+      },
+      {
+        "name": "vscode-bi-workbench_createReport",
+        "displayName": "Create BI Report",
+        "modelDescription": "Creates a new BI Workbench report and its first page after explicit user confirmation. Returns stable report and page IDs for subsequent visual configuration.",
+        "userDescription": "Create a report and first page in the active BI project",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "biCreateReport",
+        "icon": "$(dashboard)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique report name."
+            },
+            "description": {
+              "type": "string",
+              "description": "Optional report purpose and audience."
+            },
+            "pageName": {
+              "type": "string",
+              "description": "Name of the first report page."
+            },
+            "pageDescription": {
+              "type": "string",
+              "description": "Optional first-page description."
+            },
+            "purpose": {
+              "type": "string",
+              "description": "Short explanation of why the report is being created."
+            }
+          },
+          "required": [
+            "name",
+            "pageName",
+            "purpose"
+          ]
+        }
       }
     ]
   },
@@ -311,15 +539,17 @@
     "test:ui": "vitest run tests/ui",
     "test:extension": "npm run build && node ./dist/test/runExtensionTests.js",
     "validate": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "package": "npm run validate && node ./scripts/collectLicenses.mjs && node ./scripts/ensureArtifacts.mjs && vsce package --out ./artifacts/vscode-bi-workbench-0.1.0.vsix",
+    "package": "npm run validate && node ./scripts/collectLicenses.mjs && node ./scripts/ensureArtifacts.mjs && vsce package --out ./artifacts/vscode-bi-workbench-0.2.0.vsix",
     "vscode:prepublish": "npm run build"
   },
   "dependencies": {
-    "@duckdb/node-api": "1.5.5-r.3"
+    "@duckdb/node-api": "1.5.5-r.3",
+    "sql.js": "1.14.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.0",
+    "@types/sql.js": "1.4.11",
     "@types/vscode": "1.125.0",
     "@typescript-eslint/eslint-plugin": "8.65.0",
     "@typescript-eslint/parser": "8.65.0",

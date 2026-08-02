@@ -68,8 +68,27 @@ export class TransformationService {
         case 'filter':
         case 'fillNull':
         case 'sort':
+        case 'replace':
           ensureColumn(step.column, index);
           break;
+        case 'datePart':
+          ensureColumn(step.column, index);
+          if (columns.some((column) => column.toLowerCase() === step.newName.toLowerCase())) {
+            throw new Error(`Transformation step ${index + 1} would create duplicate column "${step.newName}".`);
+          }
+          columns = [...columns, step.newName];
+          break;
+        case 'group': {
+          step.groupBy.forEach((column) => ensureColumn(column, index));
+          step.aggregations.forEach((aggregation) => ensureColumn(aggregation.column, index));
+          const nextColumns = [...step.groupBy, ...step.aggregations.map((aggregation) => aggregation.name)];
+          const normalized = nextColumns.map((column) => column.toLowerCase());
+          if (new Set(normalized).size !== normalized.length) {
+            throw new Error(`Transformation step ${index + 1} creates duplicate grouped or aggregate column names.`);
+          }
+          columns = nextColumns;
+          break;
+        }
         case 'deduplicate':
           break;
       }

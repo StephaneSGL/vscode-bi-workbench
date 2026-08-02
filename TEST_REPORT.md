@@ -1,64 +1,67 @@
-# BI Workbench 0.1.0 validation report
+# BI Workbench 0.2.0 validation report
 
-Validation date: 2026-08-01
+Validation date: 2026-08-02
 Environment: Windows x64, Node.js 24.14.0, npm 11.9.0, Visual Studio Code 1.130.0
 
-This report is finalized from command output immediately before the v0.1.0 commit and public release. It distinguishes automated behavior tests, visual/browser QA, Extension Host activation, and package installation.
+This report separates core behavior tests, real-browser webview QA, clean Extension Host verification, VSIX inspection and installation. It does not treat one layer as proof of another.
 
 ## Test inventory
 
 | Layer | Coverage |
 | --- | --- |
-| Unit | SQL safety and compilation, project schema, runtime message parsing, CSV/JSON/HTML export |
-| Integration | Persistent DuckDB engine; CSV/JSON/JSONL/Parquet/XLSX/DuckDB imports; project create/save/open; transforms; measures; reports; filters; exports |
-| UI DOM | Empty/project/report rendering, visual controls, clickable slicer values |
-| Browser interaction | Real Chromium render, filter form interaction, emitted host message, console errors, visual inspection |
-| Extension Host | Extension discovery, activation, command registration, package metadata, Workspace Trust declaration |
-| Package/install | VSIX construction, content inspection, `code --install-extension`, installed-extension listing |
+| Unit | SQL safety/compilation, schema-v2 migration/defaults, runtime message parsing and CSV/JSON/HTML export |
+| Integration | Persistent DuckDB; generated local-format imports; SQLite source preservation; project migration/persistence; transformations; measures; visual validation; same/related-table filters; multi-hop direction/ambiguity behavior |
+| UI DOM | Empty/project/report rendering, slicers, complete existing-visual form submission and semantic table-presentation submission |
+| Browser interaction | Built production webview in headed Chromium: multiseries charts, KPI/table formats, existing-visual edit, temporary slicer filter, visual ordering, responsive layout and console audit |
+| Extension Host | Discovery, activation, commands, four language-model tool registrations, package metadata, Workspace Trust and actual BI Workbench webview-tab creation |
+| Package/install | VSIX construction and archive audit, forced local installation, installed identity, packaged DuckDB binding load and packaged SQLite WASM execution |
 
-## Final results
+## Final local results
 
 | Check | Command / method | Result |
 | --- | --- | --- |
-| Clean dependency install | `npm ci` | Pass from `package-lock.json`; 465 packages installed, 466 audited, 0 vulnerabilities. |
-| Type + lint + automated suites + production build | `npm run validate` | Pass. 8 test files and 25 tests: 17 unit, 5 integration, 3 UI DOM. The full validation pipeline completed successfully six times during stabilization, including once immediately after the clean install. |
-| Unit suite | `npm run test:unit` | Pass, 17/17. |
-| Integration suite | `npm run test:integration` | Pass, 5/5. Real temporary DuckDB databases and generated CSV, JSONL, Parquet, XLSX, and DuckDB inputs were used. |
-| UI DOM suite | `npm run test:ui` | Pass, 3/3. |
-| Browser interaction | Playwright CLI against the built webview in Chromium | Pass. Report page rendered at 1440x1000; entering `North` and clicking **Apply** emitted the expected `upsertFilter` request. Browser console: 0 errors and 0 warnings. Visual inspection found no clipping or overlap in the tested viewport. |
-| VS Code Extension Host | `npm run test:extension` with VS Code 1.130.0 | Pass twice. Extension discovered and activated; commands and package/Workspace Trust declarations verified; host exit code 0. |
-| Package | `npm run package` | Pass. Official clean-checkout CI artifact: 32 VSIX files, 14,169,598 bytes (13.51 MiB). |
-| Package integrity | `Get-FileHash -Algorithm SHA256` | `2BABB6802B8C18EE5097FD1949D288077287044EA1ECD64ECA04FD0E5A8C6FD9` |
-| Package contents | archive listing and installed-folder checks | Pass. Extension/webview bundles, project schema, Windows x64 DuckDB DLL, notices, and 44,215-byte collected third-party license file present. |
-| Installation | `code --install-extension artifacts\vscode-bi-workbench-0.1.0.vsix --force` | Pass. VS Code reported successful installation. |
-| Installed identity | `code --list-extensions --show-versions` | `stephanesgl.vscode-bi-workbench@0.1.0` present. |
-| Installed native dependency | direct load of packaged `@duckdb/node-bindings` | Pass. |
-| Dependency audit | `npm audit --omit=dev --json` and `npm audit --json` | 0 known vulnerabilities in production and complete dependency audits; 529 dependency nodes reported by npm. |
-| Secret-pattern scan | bounded `rg` scan excluding dependencies/generated artifacts | No token, private-key, password-assignment, or API-key-assignment pattern found. |
+| Type, lint, all automated suites and production bundles | `npm run validate` | Pass repeatedly. Final run: 12 test files and 41 tests, then both production bundles. |
+| Unit suite | `npm run test:unit` | Pass: 5 files, 26/26 tests. |
+| Integration suite | `npm run test:integration` | Pass: 5 files, 10/10 tests. Generated temporary CSV, JSONL, Parquet, XLSX, DuckDB and SQLite inputs were used. |
+| SQLite preservation | Integration SHA/byte comparison before and after import | Pass. Populated and empty tables copied; source bytes unchanged. |
+| Relationship filters | Real temporary DuckDB report queries | Pass for same-table, single-hop, multi-hop and direction; ambiguous equal-length paths are rejected. |
+| UI DOM suite | `npm run test:ui` | Pass: 2 files, 5/5 tests. |
+| Browser interaction | Playwright CLI against the built webview in headed Chromium | Pass. Existing multi-series visual edited (width, color, labels), slicer created a temporary filter chip, visual moved, and responsive render inspected at approximately 988x485 and 900x700. Final console: 0 errors, 0 warnings. |
+| VS Code Extension Host | `npm run test:extension` with VS Code 1.130.0 | Pass after production build. The extension activated, declared commands/tools were registered, and `biWorkbench.open` produced a `BI Workbench` webview tab. Host exit code 0. |
+| Package | `npm run package` | Pass. 36 VSIX files, 14,532,719 bytes (13.86 MiB). Package reran all 41 tests and production builds. |
+| Package SHA-256 | `Get-FileHash -Algorithm SHA256` | `D6C512D8BF8C9EBC306186C907CA056EF4226C9B8A875E0590FA3661E946FA01` |
+| Package contents | ZIP entry audit | Pass. Project schema, four required `sql.js` files including WASM, Windows x64 DuckDB DLL, notices and 46,583-byte collected license file are present; tests and source maps are absent. |
+| Installation | `code --install-extension artifacts\vscode-bi-workbench-0.2.0.vsix --force` | Pass. VS Code reported successful installation. |
+| Installed identity | `code --list-extensions --show-versions` | `stephanesgl.vscode-bi-workbench@0.2.0` present. |
+| Installed runtimes | Direct loads from the installed extension directory | Pass. Packaged DuckDB v1.5.5 executed `SELECT 42 AS answer`; packaged `sql.js` executed `SELECT 42` and returned 42. |
+| Dependency audits | `npm audit --omit=dev --json` and `npm audit --json` | Pass: 0 known vulnerabilities; 5 production and 532 total dependency nodes reported. |
+| Secret-pattern scan | Bounded `rg` scan excluding dependencies/generated artifacts | Pass: 0 token, private-key, password-assignment or API-key-assignment matches. |
 
-The final `npm run package` reran type checking, lint, all 25 automated tests, and both production bundles before writing the VSIX.
+The packaged SQLite footprint was reduced from 28 package files to the four required runtime/license/manifest files. The final installed reader was retested after that reduction.
+
+## Copilot verification boundary
+
+The clean Extension Host proves that the four tools are accepted by VS Code and registered at runtime. The project-manager path used by report/visual application has integration coverage, and the visual path executes a real query before commit. A direct tool call outside Chat cannot be manufactured correctly because `vscode.lm.invokeTool` requires a Chat-issued `toolInvocationToken`; the clean host has no user model entitlement or live Chat turn. Therefore this report does not claim an end-to-end provider inference session. The API registration, confirmation definitions, bounded participant loop and underlying mutations are tested at their available boundaries.
 
 ## Public CI evidence
 
-The initial public Windows validation run completed successfully in 2 minutes 14 seconds: `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package`, and artifact upload all passed. Run: https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30721973755
-
-That run annotated the then-used GitHub Actions v4 JavaScript runtime as Node 20-deprecated. The workflow now uses the official v7 releases for checkout, Node setup, and artifact upload. The updated workflow passed in 1 minute 47 seconds with every step green: https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30722087226
-
-The locally built and clean-checkout CI VSIX archives were compared file by file. All executable bundles, schema files, native binaries, manifests, and notices matched. Only newline encoding differed in README, changelog, and the generated license compilation. The clean-checkout CI artifact was selected, reinstalled successfully, and is the release artifact whose hash is recorded above.
+The v0.2 branch/PR Windows workflow is the remaining remote release gate at the time of this local report. It must run `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package` and artifact upload before the draft PR is described as green. The final PR handoff records the remote run URL and state.
 
 ## Non-product warnings observed
 
-- The local Extension Host printed a warning from VS Code's built-in Mermaid/Copilot plugin environment about a private API proposal. The BI Workbench test process still exited with code 0; the warning did not reference this extension.
-- `code --install-extension` printed Node's `DEP0169` warning from the VS Code CLI path. Installation completed and the installed identity was verified.
-- VSCE reports that `duckdb.dll` is 35.02 MiB before ZIP compression. This is the required native analytical engine; the complete compressed VSIX is 13.51 MiB.
-- `npm ci` reported deprecation notices for transitive `whatwg-encoding` and `prebuild-install`; npm's production and complete vulnerability audits both remained at zero. These dependencies should be reevaluated during routine upgrades.
+- The clean host prints a warning from VS Code's built-in Mermaid extension about a private API proposal. It does not identify BI Workbench and the host exits with code 0.
+- `code --install-extension` prints Node `DEP0169` from the VS Code CLI's use of `url.parse()`. Installation and installed identity checks pass.
+- VSCE reports the 35.02 MiB uncompressed `duckdb.dll` as large. It is the required native analytical engine; the compressed VSIX is 13.86 MiB.
 
-The browser-interaction artifact was used for local QA and is intentionally excluded from the repository and VSIX because it contains generated harness state rather than product source.
+## Defects found and corrected during v0.2 stabilization
 
-## Earlier defects found and corrected
+- ECharts 6 warned about the legacy `grid.containLabel` option and disposed instances during resize callbacks. The renderer now uses `outerBounds` settings and disconnects observers before disposal; final console audit is clean.
+- Narrow KPI cards lost their titles/actions and large values overflowed. Container-responsive action layout and KPI typography now pass 900-pixel viewport review.
+- The first VSIX included unused `sql.js` debug, ASM and worker builds. `.vscodeignore` now packages only the selected WASM runtime and its required metadata/license.
+- Extension-tab assertion ran before VS Code exposed the new tab. The test now waits one bounded UI tick and then verifies the real `BI Workbench` tab.
+- SQLite import staging originally registered its temporary JSONL file too late to clean it after a target transaction failure. Cleanup registration now happens immediately and an integration regression test forces that failure path.
+- Copilot schema context originally exposed saved-query SQL and report-filter values even though neither was needed for structural assistance. Schema tools now return query names and filter metadata only; unit coverage verifies that stored SQL and filter secrets are absent.
+- Read-only SQL blocked the primary file-reader names but not every scanner/network alias or quoted function spelling. The guard now rejects external readers, scanners, attachments, network/secret/engine-metadata functions and quoted function calls; aggregate sharing has a conservative direct-SELECT grammar with bypass regression cases.
+- Timeout handling originally released the serialized connection queue as soon as the timer won a promise race. It now interrupts and awaits native query settlement before reuse; an integration test forces a one-millisecond timeout and immediately proves connection recovery.
 
-- XLSX integration initially exposed an incompatible behavior in `read-excel-file` 9.3.5; the runtime was pinned to the tested 8.0.3 release.
-- DuckDB database import initially attempted `DETACH` while a transaction was active; the connector now serializes attach/copy/commit/detach correctly and identifies source base tables through `duckdb_tables()`.
-- The first slicer renderer only displayed distinct values; it now emits real temporary cross-filter requests and has a DOM regression test.
-
-No passing test is treated as proof of Marketplace publication, Power BI compatibility, tenant integration, or cross-platform native-package compatibility.
+No passing test is presented as proof of Marketplace publication, Power BI compatibility, a Power BI tenant connection, a live model-provider subscription or cross-platform native-package compatibility.
