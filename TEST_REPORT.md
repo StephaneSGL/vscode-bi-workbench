@@ -1,69 +1,76 @@
-# BI Workbench 0.2.0 validation report
+# BI Workbench 0.3.0 validation report
 
 Validation date: 2026-08-02
-Environment: Windows x64, Node.js 24.14.0, npm 11.9.0, Visual Studio Code 1.130.0
+Environment: Windows x64, Node.js 24.14.0, npm 11.9.0, Visual Studio Code 1.130.0, Power BI Desktop 2.156.951.0
 
-This report separates core behavior tests, real-browser webview QA, clean Extension Host verification, VSIX inspection and installation. It does not treat one layer as proof of another.
+This report keeps automated schemas, browser rendering, VS Code activation, installed runtimes and Power BI Desktop interoperability as separate evidence layers. Passing one layer is not presented as proof of every other layer.
 
 ## Test inventory
 
 | Layer | Coverage |
 | --- | --- |
-| Unit | SQL safety/compilation, schema-v2 migration/defaults, runtime message parsing and CSV/JSON/HTML export |
-| Integration | Persistent DuckDB; generated local-format imports; SQLite source preservation; project migration/persistence; transformations; measures; visual validation; same/related-table filters; multi-hop direction/ambiguity behavior |
-| UI DOM | Empty/project/report rendering, slicers, complete existing-visual form submission and semantic table-presentation submission |
-| Browser interaction | Built production webview in headed Chromium: multiseries charts, KPI/table formats, existing-visual edit, temporary slicer filter, visual ordering, responsive layout and console audit |
-| Extension Host | Discovery, activation, commands, four language-model tool registrations, package metadata, Workspace Trust and actual BI Workbench webview-tab creation |
-| Package/install | VSIX construction and archive audit, forced local installation, installed identity, packaged DuckDB binding load and packaged SQLite WASM execution |
+| Unit | SQL safety/compilation, schema migration/defaults, project messages/exports, Copilot privacy/tool schemas and Power BI name/type/DAX adapters |
+| Integration | Persistent DuckDB, generated file/database imports, SQLite preservation, project persistence, transformations, measures, relationship filters and complete Power BI project generation |
+| UI DOM | Empty/project/report rendering, slicers, semantic forms, existing-visual submission, authoring shell/inspector panes and legacy-theme fallback |
+| Browser visual QA | Built production webview in headed Chromium at 1440×900 in VS Code-style dark and light themes |
+| Extension Host | Discovery, activation, commands, package metadata, five language-model tools and real BI Workbench webview-tab creation |
+| Power BI Desktop | Exact final PBIP fixture open, relationship update and local CSV refresh in Desktop 2.156.951.0 |
+| Package/install | VSIX construction, archive audit, forced local installation, installed identity, native DuckDB binding and SQLite WASM queries |
 
 ## Final local results
 
 | Check | Command / method | Result |
 | --- | --- | --- |
-| Type, lint, all automated suites and production bundles | `npm run validate` | Pass repeatedly. Final run: 12 test files and 41 tests, then both production bundles. |
-| Unit suite | `npm run test:unit` | Pass: 5 files, 26/26 tests. |
-| Integration suite | `npm run test:integration` | Pass: 5 files, 10/10 tests. Generated temporary CSV, JSONL, Parquet, XLSX, DuckDB and SQLite inputs were used. |
-| SQLite preservation | Integration SHA/byte comparison before and after import | Pass. Populated and empty tables copied; source bytes unchanged. |
-| Relationship filters | Real temporary DuckDB report queries | Pass for same-table, single-hop, multi-hop and direction; ambiguous equal-length paths are rejected. |
-| UI DOM suite | `npm run test:ui` | Pass: 2 files, 5/5 tests. |
-| Browser interaction | Playwright CLI against the built webview in headed Chromium | Pass. Existing multi-series visual edited (width, color, labels), slicer created a temporary filter chip, visual moved, and responsive render inspected at approximately 988x485 and 900x700. Final console: 0 errors, 0 warnings. |
-| VS Code Extension Host | `npm run test:extension` with VS Code 1.130.0 | Pass after production build. The extension activated, declared commands/tools were registered, and `biWorkbench.open` produced a `BI Workbench` webview tab. Host exit code 0. |
-| Package | `npm run package` | Pass. 38 VSIX files, 14,598,745 bytes (13.92 MiB). Package reran all 41 tests and production builds. |
-| Package SHA-256 | `Get-FileHash -Algorithm SHA256` | `D2306BFA6804570F2A1B7B59E94BCBB90EFFFABA92AEBE3629979E9FEAA9C1EA` |
-| Package contents | ZIP entry audit | Pass. Project schema, four required `sql.js` files including WASM, Windows x64 DuckDB DLL, notices and 46,583-byte collected license file are present; tests and source maps are absent. |
-| Installation | `code --install-extension artifacts\vscode-bi-workbench-0.2.0.vsix --force` | Pass. VS Code reported successful installation. |
-| Installed identity | `code --list-extensions --show-versions` | `stephanesgl.vscode-bi-workbench@0.2.0` present. |
-| Installed runtimes | Direct loads from the installed extension directory | Pass. Packaged DuckDB v1.5.5 executed `SELECT 42 AS answer`; packaged `sql.js` executed `SELECT 42` and returned 42. |
-| Dependency audits | `npm audit --omit=dev --json` and `npm audit --json` | Pass: 0 known vulnerabilities; 5 production and 532 total dependency nodes reported. |
-| Secret-pattern scan | Bounded `rg` scan excluding dependencies/generated artifacts | Pass: 0 token, private-key, password-assignment or API-key-assignment matches. |
-
-The packaged SQLite footprint was reduced from 28 package files to the four required runtime/license/manifest files. The final installed reader was retested after that reduction.
+| Complete validation | `npm run validate` | Pass repeatedly, including both final package runs: typecheck, ESLint, 14 files/47 tests and production bundles. |
+| Unit suite | `npm run test:unit` | Pass: 6 files, 30/30 tests. |
+| Integration suite | `npm run test:integration` | Pass: 6 files, 11/11 tests. |
+| UI DOM suite | `npm run test:ui` | Pass: 2 files, 6/6 tests. |
+| Power BI integration validator | Synthetic two-table model, relationship, measure and all ten visual types through `@microsoft/powerbi-report-authoring-cli` | Pass: zero PBIR catalog/schema errors. TMDL comments, many-to-one endpoint normalization, `FitToWidth`, full CSV rows, no-overwrite and 240-character path rejection are asserted. |
+| Power BI Desktop final smoke | Generated `Retail-Analytics.pbip`, opened through the Windows file association, then invoked both visible `Actualiser maintenant` actions through UI Automation | Pass on Desktop 2.156.951.0. The relationship notice cleared, the incomplete-data notice cleared, no error dialog/name was detected and the card exposed `CarteTotal revenue, 65,00`. |
+| Production webview visual QA | Playwright CLI, Chromium, 1440×900, production JS/CSS | Pass in dark and light themes. Ribbon, work-area rail, report/page tabs, canvas and Filters/Visualizations/Data inspector render correctly; console 0 errors/0 warnings, body width 1440/1440 and KPI scroll/client width 258/258. |
+| VS Code Extension Host | `npm run test:extension` with VS Code 1.130.0 | Pass, exit code 0. BI Workbench activated, opened its webview tab, declared commands/views and registered five language-model tools. |
+| Package | `npm run package` | Pass. Final archive: 36 files, 14,685,136 bytes. Packaging reran all 47 tests and production builds. |
+| Package SHA-256 | `Get-FileHash` plus generated `artifacts/SHA256SUMS.txt` | `46D4D206CFD956128ED16B2AF3A0FC948B2D5C2514AE46FC9179BF3822A13874`; the generated checksum line matches. |
+| Package contents | ZIP entry audit | Pass. Manifest, production bundles, project schema, logo, notices, one Windows x64 DuckDB DLL and one SQLite WASM are present. Missing required: 0; forbidden source/test/docs/maps/declarations/env files: 0. |
+| Installation | `code --install-extension .\artifacts\vscode-bi-workbench-0.3.0.vsix --force` | Pass; VS Code reported successful installation. |
+| Installed identity | `code --list-extensions --show-versions` | `stephanesgl.vscode-bi-workbench@0.3.0` present. |
+| Installed DuckDB runtime | Direct query through the packaged low-level binding | Pass: library `v1.5.5`, one row, column `answer` for `SELECT 42 AS answer`. |
+| Installed SQLite runtime | Direct query through packaged `sql-wasm.js`/`sql-wasm.wasm` | Pass: `SELECT 42 AS answer` returned 42. |
+| Dependency audits | `npm audit --omit=dev --json` and `npm audit --json` | Pass: 0 known vulnerabilities, including 0 high/critical; metadata reports 5 production, 524 development and 107 optional dependency nodes (536 total). |
+| License collection | `scripts/collectLicenses.mjs` during packaging | Pass: deterministic 46,583-byte license collection plus notices. The MIT Microsoft PBIR validator remains development-only and is absent from the VSIX. |
+| Secret-pattern scan | Bounded `rg` scan excluding dependencies, builds, artifacts and QA output | Pass: 0 matching files. |
 
 ## Copilot verification boundary
 
-The clean Extension Host proves that the four tools are accepted by VS Code and registered at runtime. The project-manager path used by report/visual application has integration coverage, and the visual path executes a real query before commit. A direct tool call outside Chat cannot be manufactured correctly because `vscode.lm.invokeTool` requires a Chat-issued `toolInvocationToken`; the clean host has no user model entitlement or live Chat turn. Therefore this report does not claim an end-to-end provider inference session. The API registration, confirmation definitions, bounded participant loop and underlying mutations are tested at their available boundaries.
+Five tools are declared and registered: schema, bounded query, confirmed report creation, confirmed visual configuration and confirmed Power BI export. Unit/integration tests cover their schemas, privacy boundaries and underlying real mutations/export service. The Power BI tool cannot receive a model-supplied path and its result omits the selected absolute path.
+
+A synthetic direct end-to-end provider inference is not claimed. `vscode.lm.invokeTool` requires a Chat-issued invocation token and an eligible user-owned model session. The extension bundles no Copilot subscription, API key or hidden provider.
+
+## Power BI verification boundary
+
+The final exporter was not validated only as JSON. Its exact final fixture opened and refreshed in the installed Power BI Desktop version stated above. This proves the documented v0.3 subset used by that fixture: generated PBIP/PBIR/TMDL, two tables, complete CSV partitions, one relationship, one conservative DAX measure and ten supported visuals.
+
+It does not prove direct PBIX generation, PBIP-to-PBIX Save As, tenant publishing, credentials, custom visuals, unsupported filters/styles, every Desktop version or future Microsoft schema compatibility. Those remain explicit limits.
 
 ## Public CI evidence
 
-The public draft [PR #1](https://github.com/StephaneSGL/vscode-bi-workbench/pull/1) ran the Windows `windows-validation` job successfully on product/CI-fix commit `2794198b6b4ada119311860aff9f8404e42a4a55`. [GitHub Actions run 30726121100](https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30726121100) completed in 2m11s and passed `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package` and `actions/upload-artifact`. The uploaded artifact is named `vscode-bi-workbench-windows-x64`.
-
-The first PR run had already passed the product tests and package construction but failed because the upload step still named the v0.1 VSIX. Commit `2794198` changed only that path to the v0.2 file; the next complete run passed. This report does not hide the failed release-infrastructure attempt or misclassify it as a product-test failure.
+The public draft [PR #1](https://github.com/StephaneSGL/vscode-bi-workbench/pull/1) contains the v0.3 work on branch `agent/configurable-bi-v0.2`. The final Windows CI run will be recorded here after the branch push; local success is not used as a substitute for remote CI.
 
 ## Non-product warnings observed
 
-- The clean host prints a warning from VS Code's built-in Mermaid extension about a private API proposal. It does not identify BI Workbench and the host exits with code 0.
-- `code --install-extension` prints Node `DEP0169` from the VS Code CLI's use of `url.parse()`. Installation and installed identity checks pass.
-- VSCE reports the 35.02 MiB uncompressed `duckdb.dll` as large. It is the required native analytical engine; the compressed VSIX is 13.86 MiB.
+- The clean Extension Host printed a mutex warning plus logging/proposed-API warnings from VS Code built-ins and locally discovered Copilot plugins. BI Workbench tests completed and the host exited 0.
+- `code --install-extension` printed Node `DEP0169` from the VS Code CLI's own `url.parse()` use. Installation and installed identity both passed.
+- VSCE reports the required 35.02 MiB native DuckDB DLL as large; the compressed final VSIX is about 14 MiB.
 
-## Defects found and corrected during v0.2 stabilization
+## Defects found and corrected during v0.3 stabilization
 
-- ECharts 6 warned about the legacy `grid.containLabel` option and disposed instances during resize callbacks. The renderer now uses `outerBounds` settings and disconnects observers before disposal; final console audit is clean.
-- Narrow KPI cards lost their titles/actions and large values overflowed. Container-responsive action layout and KPI typography now pass 900-pixel viewport review.
-- The first VSIX included unused `sql.js` debug, ASM and worker builds. `.vscodeignore` now packages only the selected WASM runtime and its required metadata/license.
-- Extension-tab assertion ran before VS Code exposed the new tab. The test now waits one bounded UI tick and then verifies the real `BI Workbench` tab.
-- SQLite import staging originally registered its temporary JSONL file too late to clean it after a target transaction failure. Cleanup registration now happens immediately and an integration regression test forces that failure path.
-- Copilot schema context originally exposed saved-query SQL and report-filter values even though neither was needed for structural assistance. Schema tools now return query names and filter metadata only; unit coverage verifies that stored SQL and filter secrets are absent.
-- Read-only SQL blocked the primary file-reader names but not every scanner/network alias or quoted function spelling. The guard now rejects external readers, scanners, attachments, network/secret/engine-metadata functions and quoted function calls; aggregate sharing has a conservative direct-SELECT grammar with bypass regression cases.
-- Timeout handling originally released the serialized connection queue as soon as the timer won a promise race. It now interrupts and awaits native query settlement before reuse; an integration test forces a one-millisecond timeout and immediately proves connection recovery.
+- Desktop initially rejected a generated visual whose Windows path reached 262 characters. Model/report/table artifacts now use short deterministic names and the exporter checks a conservative 240-character budget before staging.
+- Desktop rejected TMDL `description:` properties. Descriptions now use documented `///` comments.
+- Desktop rejected the original relationship endpoint convention. Endpoints/cardinalities now follow many-to-one TMDL rules; one-to-one filtering is normalized with a warning.
+- Multi-visual pages were too small with `FitToPage`; final PBIR uses `FitToWidth`.
+- A legacy visual state without a theme could stop report rendering. The webview/chart adapters now use the default theme during migration and have a regression test.
+- Narrow KPI values clipped and the inspector exposed an unnecessary horizontal scrollbar. Responsive KPI sizing, hover/focus visual commands and horizontal containment were visually rechecked in both themes.
+- Temporary Playwright helpers were initially included in ESLint discovery. Generated `output/**` is now excluded while tracked source remains fully linted.
+- Two runtime dependency declaration files were included in the first candidate archive. `**/*.d.ts` is now excluded; the final audit contains 36 entries and no source declarations.
 
-No passing test is presented as proof of Marketplace publication, Power BI compatibility, a Power BI tenant connection, a live model-provider subscription or cross-platform native-package compatibility.
+No passing result is presented as evidence of Marketplace/Open VSX publication, PR merge, a live Power BI tenant, a successful PBIX Save As, or cross-platform native-package compatibility.

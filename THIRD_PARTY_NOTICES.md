@@ -1,6 +1,6 @@
 # Third-party notices
 
-Runtime libraries used by BI Workbench v0.2.0, including libraries integrated into the JavaScript bundles:
+Runtime libraries used by BI Workbench v0.3.0, including libraries integrated into the JavaScript bundles:
 
 | Package | Version | License | Project |
 | --- | ---: | --- | --- |
@@ -16,4 +16,4 @@ Runtime libraries used by BI Workbench v0.2.0, including libraries integrated in
 
 The XLSX reader's bundled transitive libraries are `@xmldom/xmldom`, `fflate`, `unzipper`, `bluebird`, `duplexer2`, `fs-extra`, `graceful-fs`, `node-int64`, and `universalify`; their exact versions and license texts are included in `THIRD_PARTY_LICENSES.txt`.
 
-Development-only tools and their licenses are recorded in `package-lock.json` and can be inspected with `npm query '*' --json` or an independent license scanner. No Microsoft Power BI code, visual asset, or logo is bundled.
+Development-only tools and their licenses are recorded in `package-lock.json` and can be inspected with `npm query '*' --json` or an independent license scanner. The MIT-licensed `@microsoft/powerbi-report-authoring-cli` is pinned as a development-only validator and is not bundled in the VSIX. No Microsoft Power BI code, visual asset, or logo is bundled.

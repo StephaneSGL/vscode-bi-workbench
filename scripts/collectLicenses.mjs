@@ -47,5 +47,5 @@ for (const item of packages) {
 }
 
 const separator = `\n\n${'='.repeat(72)}\n\n`;
-const output = `BI Workbench 0.2.0 third-party license texts\nGenerated deterministically by scripts/collectLicenses.mjs.\n\n${sections.join(separator)}\n`;
+const output = `BI Workbench 0.3.0 third-party license texts\nGenerated deterministically by scripts/collectLicenses.mjs.\n\n${sections.join(separator)}\n`;
 await writeFile('THIRD_PARTY_LICENSES.txt', output, 'utf8');

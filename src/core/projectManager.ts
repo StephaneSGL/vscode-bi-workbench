@@ -23,6 +23,7 @@ import {
 import { DuckDbEngine } from './duckdbEngine.js';
 import { ImportService } from './importService.js';
 import { ModelService } from './modelService.js';
+import { PowerBiExportService, type PowerBiExportResult } from './powerBiExportService.js';
 import { ProjectStore, type OpenedProject } from './projectStore.js';
 import { ReportService } from './reportService.js';
 import { assertReadOnlyQuery } from './sql.js';
@@ -36,6 +37,7 @@ export class ProjectManager {
   private readonly imports = new ImportService(this.engine);
   private readonly transformations = new TransformationService(this.engine);
   private readonly model = new ModelService(this.engine);
+  private readonly powerBiExport = new PowerBiExportService(this.engine);
   private readonly reports = new ReportService(this.engine);
   private opened?: OpenedProject;
   private dirtyState = false;
@@ -102,6 +104,10 @@ export class ProjectManager {
     };
     this.dirtyState = false;
     this.emit();
+  }
+
+  async exportPowerBiProject(targetDirectory: string): Promise<PowerBiExportResult> {
+    return this.powerBiExport.export(this.requireProject(), targetDirectory);
   }
 
   async importFile(filePath: string, targetName?: string): Promise<void> {

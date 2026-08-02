@@ -7,7 +7,13 @@ export async function run(): Promise<void> {
   await extension.activate();
   assert.equal(extension.isActive, true, 'The extension must activate successfully.');
   const commands = await vscode.commands.getCommands(true);
-  for (const command of ['biWorkbench.open', 'biWorkbench.createProject', 'biWorkbench.importData', 'biWorkbench.saveProject']) {
+  for (const command of [
+    'biWorkbench.open',
+    'biWorkbench.createProject',
+    'biWorkbench.importData',
+    'biWorkbench.saveProject',
+    'biWorkbench.exportPowerBiProject'
+  ]) {
     assert.ok(commands.includes(command), `Expected command ${command} to be registered.`);
   }
   const tools = vscode.lm.tools.map((tool) => tool.name);
@@ -15,7 +21,8 @@ export async function run(): Promise<void> {
     'vscode-bi-workbench_getProjectSchema',
     'vscode-bi-workbench_queryProject',
     'vscode-bi-workbench_configureVisual',
-    'vscode-bi-workbench_createReport'
+    'vscode-bi-workbench_createReport',
+    'vscode-bi-workbench_exportPowerBiProject'
   ]) {
     assert.ok(tools.includes(tool), `Expected language-model tool ${tool} to be registered.`);
   }
@@ -35,6 +42,6 @@ export async function run(): Promise<void> {
   assert.equal(extension.packageJSON.galleryBanner?.color, '#0B1020');
   const icon = await vscode.workspace.fs.stat(vscode.Uri.joinPath(extension.extensionUri, extension.packageJSON.icon));
   assert.ok(icon.size > 0, 'The packaged extension icon must exist and be non-empty.');
-  assert.equal(extension.packageJSON.version, '0.2.0');
+  assert.equal(extension.packageJSON.version, '0.3.0');
   assert.equal(extension.packageJSON.capabilities.untrustedWorkspaces.supported, false);
 }

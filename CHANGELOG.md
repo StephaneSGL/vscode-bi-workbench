@@ -2,6 +2,39 @@
 
 All notable changes to BI Workbench are documented here.
 
+## 0.3.0 — 2026-08-02
+
+### Added
+
+- Real Power BI Desktop Project export using Microsoft's documented PBIP shortcut, PBIR report and TMDL semantic-model formats.
+- Complete local CSV copies of exported DuckDB tables with Power Query M import partitions and explicit sensitive-data confirmation.
+- Semantic table/column presentation, relationships, active state, cardinalities, filter directions and conservative DuckDB SQL-to-DAX measure translation.
+- PBIR generation for table, card, clustered column/bar, line, area, pie, donut, scatter and slicer visuals, including titles, deterministic layout and disabled-interaction mappings.
+- `BI Workbench: Export Power BI Desktop Project (PBIP)`, webview export actions, `@bi /powerbi` and confirmation-gated `#biExportPowerBI`.
+- Microsoft report-authoring validator pinned as a development-only dependency; integration coverage validates every supported visual role and remote JSON schemas.
+- A compact BI authoring ribbon, Report/Data/Model rail, central report canvas, page/report tabs and right-side Filters/Visualizations/Data panes that follow VS Code light and dark themes.
+
+### Fixed
+
+- Generated Power BI item, table and visual paths now use short deterministic identifiers and enforce a 240-character Desktop safety budget before export.
+- TMDL descriptions now use the documented `///` comment syntax instead of an invalid property form.
+- Relationship endpoints/cardinalities are normalized to Power BI's many-to-one convention; one-to-one filters are exported bidirectionally with an explicit warning.
+- PBIR pages use `FitToWidth`, KPI values scale to narrow cards and visual edit controls stay unobtrusive until hover/focus.
+- Report rendering falls back safely while a legacy project state is being migrated and the inspector no longer exposes a horizontal scrollbar.
+
+### Security
+
+- The Copilot export tool cannot receive a filesystem path from the model. VS Code always asks the user to select the parent folder locally.
+- Export writes to a fresh staging directory, refuses overwrite, then atomically renames the completed project into place.
+- Tool results do not disclose the selected absolute path to the language model; errors redact local paths.
+
+### Known limitations
+
+- BI Workbench does not generate proprietary PBIX directly. Power BI Desktop must open PBIP and perform Save As.
+- SQL-to-DAX translation is limited to safe aggregate patterns. Unsupported measures, unaggregated chart values and saved page filters are omitted with explicit warnings.
+- Generated M partitions use absolute CSV paths; moving the export requires updating them.
+- The smoke fixture opened and refreshed successfully in Power BI Desktop `2.156.951.0` on Windows x64. This does not establish universal compatibility with every Desktop version or unsupported feature.
+
 ## 0.2.0 — 2026-08-02
 
 ### Added

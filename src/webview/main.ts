@@ -113,6 +113,7 @@ async function handleAction(action: string, element: HTMLElement): Promise<void>
     case 'show-logs': post({ type: 'showLogs' }); break;
     case 'open-help': post({ type: 'openHelp' }); break;
     case 'open-settings': post({ type: 'openSettings' }); break;
+    case 'open-copilot': post({ type: 'openCopilot' }); break;
     case 'preview-table': post({ type: 'previewTable', tableId: requiredData(element, 'tableId') }); break;
     case 'profile-table': post({ type: 'profileTable', tableId: requiredData(element, 'tableId') }); break;
     case 'run-query': post({ type: 'runQuery', sql: value('query-sql') }); break;
@@ -164,6 +165,7 @@ async function handleAction(action: string, element: HTMLElement): Promise<void>
     case 'slicer-select': applySlicer(element); break;
     case 'clear-interactions': clearInteractions(); break;
     case 'export-report': exportReport(); break;
+    case 'export-powerbi': post({ type: 'exportPowerBiProject' }); break;
     case 'export-visual': exportVisual(requiredData(element, 'id'), requiredData(element, 'format') as 'csv' | 'json'); break;
   }
 }

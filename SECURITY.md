@@ -16,7 +16,7 @@ AI context is created only after the user invokes `@bi` or a BI tool. `biWorkben
 
 The `aggregates` mode permits bounded grouped summaries, so group labels and order-statistic aggregates such as minima, maxima, medians or quantiles can still reveal individual values. Its query tool rejects CTEs, subqueries, joins, windows, set operations, top-level wildcards and unapproved SELECT-list functions to prevent a raw-row query from being disguised by an unrelated aggregate.
 
-The query, create-report and configure-visual tools use VS Code confirmation messages. Write tools modify only project metadata after confirmation. Visual application also executes the real bounded visual query before commit. The extension does not store a Copilot/API token, select a hidden remote model or run background autonomous AI tasks.
+The query, create-report, configure-visual and Power BI export tools use VS Code confirmation messages. Write tools modify only project metadata after confirmation. Visual application also executes the real bounded visual query before commit. The Power BI tool accepts no path from the model: VS Code asks the user locally, and the result sent back to the model contains counts and warnings but no absolute path. The extension does not store a Copilot/API token, select a hidden remote model or run background autonomous AI tasks.
 
 Never place passwords, tokens, private keys, connection strings or confidential row values in project metadata, prompts, saved-query names, logs, screenshots or public issues.
 
@@ -28,7 +28,9 @@ Imports and transformations use separate controlled code paths with quoted ident
 
 ## Relationship and export boundary
 
-Filter propagation follows only active, direction-compatible relationships. Ambiguous equal-length paths fail instead of silently joining unintended tables. Exported CSV protects cells that could be interpreted as spreadsheet formulas. HTML reports are static bounded snapshots and must be reviewed before external distribution.
+Filter propagation follows only active, direction-compatible relationships. Ambiguous equal-length paths fail instead of silently joining unintended tables. Query/visual CSV protects cells that could be interpreted as spreadsheet formulas. HTML reports are static bounded snapshots and must be reviewed before external distribution.
+
+Power BI export is intentionally a complete-data operation. After explicit confirmation, every exported table row is copied to a new `Data` folder; those CSV files are not formula-neutralized because Power Query must receive the original values. The exporter refuses overwrite, rejects destinations whose generated files would exceed its conservative 240-character Desktop path budget, writes a fresh sibling staging tree, and atomically renames it only after successful completion. Treat the complete export as sensitive, do not commit it blindly, and review every reported omission before distribution.
 
 ## Workspace Trust
 

@@ -12,10 +12,13 @@ VS Code
 │  ├─ ImportService: transactional local-file and database ingestion
 │  ├─ TransformationService: typed recipe -> deterministic transactional SQL
 │  ├─ ReportService: visuals + filters + relationships -> bounded read-only SQL
+│  ├─ PowerBiExportService: complete CSV copy -> PBIP/PBIR/TMDL project
 │  ├─ Explorer sidebar trees, exports, logs and settings
 │  └─ Copilot participant/tools with privacy and confirmation boundaries
 └─ Webview (browser sandbox)
+   ├─ Compact command ribbon and Report/Data/Model work-area rail
    ├─ Home/import/data/query/transform/model/measures/reports/settings/help
+   ├─ Central report canvas plus Filters/Visualizations/Data inspector panes
    ├─ Editable report and semantic-model forms
    ├─ ECharts renderers and interactive slicers
    └─ Runtime-validated message bridge; no direct filesystem/database access
@@ -34,6 +37,7 @@ The webview is deliberately unprivileged. It renders a host-owned state snapshot
 | `src/core/transformationService.ts` | Validated transformation pipeline compiler |
 | `src/core/projectManager.ts` | Transaction boundary for tables, relationships, measures, reports and visuals |
 | `src/core/reportService.ts` | Visual-query planning and relationship-aware filters |
+| `src/core/powerBiExportService.ts` | Fresh-directory Power BI project export, SQL-to-DAX translation, TMDL and PBIR generation |
 | `src/copilot/*` | Privacy-scoped context, participant tool loop and registered tools |
 | `src/webview/*` | Pure HTML rendering, event handling, CSS and ECharts options |
 
@@ -81,10 +85,11 @@ User queries are restricted to one bounded read-only statement. The query UI can
 
 1. The user explicitly invokes `@bi` or references a BI tool in VS Code Chat.
 2. The extension builds only the context allowed by `biWorkbench.copilotDataSharing`; `schema` is the default and contains no raw rows.
-3. The participant selects the model chosen by the user and offers only the four BI Workbench tools to it.
+3. The participant selects the model chosen by the user and offers only the five BI Workbench tools to it.
 4. Text is streamed to Chat. Tool calls are limited to four rounds, invoked through `vscode.lm.invokeTool`, and their exact structured result is fed back to the model.
 5. `#biProjectSchema` is read-only. `#biQuery` is read-only, bounded and confirmation-gated, and remains disabled in schema-only mode.
 6. `#biCreateReport` and `#biConfigureVisual` require explicit VS Code confirmation. The visual tool executes the real visual query before saving. Imported source files are never changed by either tool.
+7. `#biExportPowerBI` also requires confirmation, but accepts no path from the model. VS Code collects the destination locally, copies complete tables, writes PBIP/PBIR/TMDL and returns counts/warnings without sharing the absolute path.
 
 This is Copilot-compatible through public VS Code APIs; it does not bundle GitHub credentials, a model entitlement, an API key or a proxy.
 
@@ -99,6 +104,7 @@ This is Copilot-compatible through public VS Code APIs; it does not bundle GitHu
 7. Keep the webview outside the filesystem/database trust boundary.
 8. Keep Copilot context schema-only by default and make write tools confirmation-gated.
 9. Exclude credentials and raw data rows from logs.
+10. Refuse Power BI export overwrite, write into a private fresh staging directory and rename only after all artifacts succeed.
 
 ## Technology choices
 
@@ -108,9 +114,22 @@ This is Copilot-compatible through public VS Code APIs; it does not bundle GitHu
 - **Apache ECharts:** permissive license, Canvas rendering, multi-series charts, interactions and accessibility descriptions.
 - **JSON metadata plus DuckDB data:** Git-reviewable definitions while keeping potentially sensitive imported rows out of Git by default.
 - **VS Code Language Model APIs:** provider selection and confirmations remain in the host product; BI Workbench stores no AI credential.
+- **Documented Power BI project formats:** PBIP, PBIR and TMDL are generated from public schemas; the proprietary PBIX container is left to Power BI Desktop.
+
+## Power BI export flow
+
+1. A command or confirmed Copilot tool asks VS Code for a local parent folder. The model never supplies the path.
+2. The exporter reserves a new sibling staging directory and refuses any existing final target.
+3. DuckDB copies every table, with semantic headers, to full UTF-8 CSV files. This is an explicit complete-data export, not a preview payload.
+4. The semantic adapter writes `definition.pbism`, database/model/table TMDL, relationships, conservative DAX measures and M partitions pointing to the final CSV paths.
+5. Relationship endpoints are normalized to Power BI's many-to-one TMDL convention. A one-to-one relationship is made bidirectional and reported as a warning because that is the Desktop constraint.
+6. The report adapter writes one `.Report` item per report, with PBIR pages, supported visual projections, `FitToWidth` display and deterministic 20-hex identifiers.
+7. Short deterministic model/report/table names keep paths stable. A conservative 240-character generated-file budget is checked before staging to avoid Desktop failures on deep Windows paths.
+8. A PBIP shortcut references the report items. The completed staging tree is renamed into place atomically.
+9. The caller receives exact counts and warnings. Unsupported semantics are omitted and reported rather than approximated silently.
 
 ## Resource profile and extension points
 
-There is no background server. One embedded DuckDB connection is open for the active project, operations are serialized and the engine is limited to at most four worker threads. The webview exists only while opened. Preview, query, visual, export and Copilot payloads are bounded.
+There is no background server. One embedded DuckDB connection is open for the active project, operations are serialized and the engine is limited to at most four worker threads. The webview exists only while opened. Preview, query, visual and Copilot payloads are bounded. User-triggered file exports are deliberately complete and can therefore be large.
 
-New connectors, transformations and visual types each require a schema variant, a host-side validator/compiler, tests and an explicit security review. A future PBIR/TMDL adapter must remain isolated and use only documented public schemas.
+New connectors, transformations and visual types each require a schema variant, a host-side validator/compiler, tests and an explicit security review. The PBIR/TMDL adapter remains isolated and version-pinned to documented public schemas.

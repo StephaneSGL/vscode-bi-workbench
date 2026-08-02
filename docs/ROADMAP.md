@@ -1,5 +1,25 @@
 # Release scope and roadmap
 
+## v0.3.0 — Power BI Desktop Project interoperability
+
+Completed scope:
+
+- Fresh-directory export of PBIP, PBIR, TMDL and complete local CSV data.
+- Semantic columns, relationships, cardinalities, active/filter-direction state and conservative aggregate-measure translation to DAX.
+- PBIR reports/pages for all ten BI Workbench visual types, deterministic layout, titles, slicer dropdowns and disabled interactions.
+- Command Palette, report-screen and home-screen export actions.
+- `@bi /powerbi` and `#biExportPowerBI`, with local folder selection and explicit confirmation.
+- Microsoft PBIR schema/catalog validation in integration tests.
+- Compact ribbon, Report/Data/Model rail, central report canvas and Filters/Visualizations/Data inspector panes, reviewed in VS Code-style light and dark themes.
+- Windows path-budget enforcement, documented TMDL comments/cardinality normalization and a successful open/relationship-update/data-refresh smoke fixture in Power BI Desktop `2.156.951.0`.
+
+Explicit v0.3 limits:
+
+- No direct PBIX creation or reading; Power BI Desktop owns PBIP-to-PBIX Save As.
+- Unsupported SQL measures, unaggregated chart values and saved page filters are reported and omitted.
+- Absolute CSV refresh paths must be updated after moving an export.
+- Advanced Power BI styling, custom visuals, credentials, tenant publishing and repeatable Desktop automation in CI are not implemented. The successful smoke fixture does not guarantee compatibility with every Desktop version or future schema.
+
 ## v0.2.0 — configurable local BI workbench
 
 The release is considered usable only when its automated suites, real-browser QA, clean Extension Host, packaged VSIX and installed identity all pass.
@@ -28,7 +48,7 @@ Explicit v0.2 limits:
 - No server database connector, join/pivot designer, cross-table measure planner, map, undo/redo, freeform pixel canvas or PDF/PNG export.
 - No PBIX, DAX, Power Query M or Power BI tenant compatibility.
 
-## v0.3 — data shaping and delivery
+## v0.4 — data shaping and delivery
 
 - PostgreSQL connector with TLS configuration, cancellation and VS Code SecretStorage credentials.
 - Join/merge, split, pivot/unpivot and step reordering with preview/diff.
@@ -40,13 +60,13 @@ Explicit v0.2 limits:
 - Copilot tools for validated measure creation and transformation-plan preview/apply.
 - Signed artifacts and Marketplace/Open VSX publication preparation.
 
-## v0.4 — connectors and reusable assets
+## v0.5 — connectors and reusable assets
 
 - MySQL and ODBC connectors with the same credential and threat-model gates.
 - Parameterized sources, refresh recipes, incremental cache policies and CLI/CI refresh.
 - Reusable visual templates and importable report themes.
 - Row-level project policies with a documented local enforcement model.
-- Optional PBIR/TMDL adapter based only on Microsoft-published schemas.
+- Reusable PBIR/TMDL templates and a migration strategy for future Microsoft schema versions.
 
 ## v1.0 criteria
 

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { ProjectManager } from '../core/projectManager.js';
 import { assertAggregateOnlyQuery, assertReadOnlyQuery } from '../core/sql.js';
 import { VisualSchema } from '../shared/project.js';
+import { promptPowerBiExport } from '../ui/powerBiExportUi.js';
 import { schemaToolPayload, type DataSharingMode } from './context.js';
 
 interface QueryToolInput {
@@ -21,6 +22,10 @@ interface CreateReportToolInput {
   description?: string;
   pageName: string;
   pageDescription?: string;
+  purpose: string;
+}
+
+interface ExportPowerBiToolInput {
   purpose: string;
 }
 
@@ -141,11 +146,49 @@ export function registerCopilotTools(context: vscode.ExtensionContext, manager: 
     }
   };
 
+  const exportPowerBiTool: vscode.LanguageModelTool<ExportPowerBiToolInput> = {
+    prepareInvocation: (options) => ({
+      invocationMessage: 'Building a Power BI Desktop Project',
+      confirmationMessages: {
+        title: 'Export the active project to Power BI?',
+        message: new vscode.MarkdownString(
+          `Purpose: **${escapeMarkdown(options.input.purpose)}**\n\nBI Workbench will ask you to select a local folder, copy all project table rows to CSV, and generate a documented \`.pbip\` project with PBIR reports and a TMDL semantic model. Exported files may contain sensitive data. No proprietary \`.pbix\` file is generated directly.`
+        )
+      }
+    }),
+    invoke: async (options, token) => {
+      if (!manager.project) {
+        return textResult({ error: 'No BI project is open.' });
+      }
+      if (token.isCancellationRequested) {
+        return textResult({ cancelled: true, reason: 'Cancelled before selecting an export folder.' });
+      }
+      try {
+        const prompted = await promptPowerBiExport(manager, { confirmWrite: false });
+        if (prompted.cancelled) {
+          return textResult({ cancelled: true, reason: 'The user did not select an export folder.' });
+        }
+        return textResult({
+          exported: true,
+          format: 'Power BI Desktop Project (PBIP with PBIR and TMDL)',
+          purpose: options.input.purpose,
+          counts: prompted.result.counts,
+          warnings: prompted.result.warnings,
+          location: 'The local folder selected by the user.',
+          next: 'Open the generated .pbip in Power BI Desktop. Power BI Desktop can then Save As a .pbix file.'
+        });
+      } catch (error) {
+        return textResult({ error: redactLocalPaths(error instanceof Error ? error.message : String(error)) });
+      }
+    }
+  };
+
   context.subscriptions.push(
     vscode.lm.registerTool('vscode-bi-workbench_getProjectSchema', schemaTool),
     vscode.lm.registerTool('vscode-bi-workbench_queryProject', queryTool),
     vscode.lm.registerTool('vscode-bi-workbench_configureVisual', configureVisualTool),
-    vscode.lm.registerTool('vscode-bi-workbench_createReport', createReportTool)
+    vscode.lm.registerTool('vscode-bi-workbench_createReport', createReportTool),
+    vscode.lm.registerTool('vscode-bi-workbench_exportPowerBiProject', exportPowerBiTool)
   );
 }
 
@@ -161,4 +204,8 @@ function textResult(value: unknown): vscode.LanguageModelToolResult {
 
 function escapeMarkdown(value: string): string {
   return value.replace(/[\\`*_{}[\]()#+.!|>-]/g, '\\$&').slice(0, 500);
+}
+
+function redactLocalPaths(value: string): string {
+  return value.replace(/[A-Za-z]:[\\/][^\r\n]+/g, '<local path>').slice(0, 2000);
 }

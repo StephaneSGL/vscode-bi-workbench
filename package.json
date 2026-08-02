@@ -2,7 +2,7 @@
   "name": "vscode-bi-workbench",
   "displayName": "BI Workbench",
   "description": "Local-first business intelligence projects, SQL analytics, semantic models, interactive dashboards, and GitHub Copilot assistance inside VS Code.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "stephanesgl",
   "license": "MIT",
   "icon": "media/bi-workbench-logo.png",
@@ -87,6 +87,12 @@
         "icon": "$(export)"
       },
       {
+        "command": "biWorkbench.exportPowerBiProject",
+        "title": "Export Power BI Desktop Project (PBIP)",
+        "category": "BI Workbench",
+        "icon": "$(file-symlink-file)"
+      },
+      {
         "command": "biWorkbench.showLogs",
         "title": "Show Logs",
         "category": "BI Workbench",
@@ -155,6 +161,11 @@
           "command": "biWorkbench.saveProject",
           "when": "view =~ /biWorkbench\\./",
           "group": "navigation@3"
+        },
+        {
+          "command": "biWorkbench.exportPowerBiProject",
+          "when": "view == biWorkbench.reports",
+          "group": "navigation@4"
         }
       ],
       "explorer/context": [
@@ -252,6 +263,10 @@
           {
             "name": "visual",
             "description": "Choose and configure an appropriate visualization"
+          },
+          {
+            "name": "powerbi",
+            "description": "Build and export a real Power BI Desktop Project (PBIP/PBIR/TMDL)"
           }
         ]
       }
@@ -523,6 +538,27 @@
             "purpose"
           ]
         }
+      },
+      {
+        "name": "vscode-bi-workbench_exportPowerBiProject",
+        "displayName": "Export Power BI Desktop Project",
+        "modelDescription": "Exports the active BI Workbench project as a real Power BI Desktop Project: PBIP shortcut, PBIR report definitions, TMDL semantic model, relationships, safely translated measures, interactive visuals, and complete local CSV table copies. It always asks the user to select a local parent folder and requires confirmation; it never accepts a filesystem path from the model and never claims to generate proprietary PBIX directly.",
+        "userDescription": "Build a Power BI Desktop Project from the active BI project",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "biExportPowerBI",
+        "icon": "$(file-symlink-file)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "purpose": {
+              "type": "string",
+              "description": "Short explanation of why the Power BI project is being exported."
+            }
+          },
+          "required": [
+            "purpose"
+          ]
+        }
       }
     ]
   },
@@ -538,7 +574,7 @@
     "test:ui": "vitest run tests/ui",
     "test:extension": "npm run build && node ./dist/test/runExtensionTests.js",
     "validate": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "package": "npm run validate && node ./scripts/collectLicenses.mjs && node ./scripts/ensureArtifacts.mjs && vsce package --out ./artifacts/vscode-bi-workbench-0.2.0.vsix",
+    "package": "npm run validate && node ./scripts/collectLicenses.mjs && node ./scripts/ensureArtifacts.mjs && vsce package --out ./artifacts/vscode-bi-workbench-0.3.0.vsix && node ./scripts/writeChecksum.mjs",
     "vscode:prepublish": "npm run build"
   },
   "dependencies": {
@@ -547,6 +583,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@microsoft/powerbi-report-authoring-cli": "0.1.4",
     "@types/node": "22.20.0",
     "@types/sql.js": "1.4.11",
     "@types/vscode": "1.125.0",

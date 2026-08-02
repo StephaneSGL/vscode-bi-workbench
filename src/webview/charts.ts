@@ -2,7 +2,7 @@ import { BarChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { BiProject, DisplayFormat, Visual, VisualData } from '../shared/project.js';
+import { DEFAULT_PROJECT_THEME, type BiProject, type DisplayFormat, type Visual, type VisualData } from '../shared/project.js';
 import type { WorkbenchState } from '../shared/state.js';
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, AriaComponent, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
@@ -43,15 +43,16 @@ export function renderCharts(
 }
 
 function chartOptions(project: BiProject, visual: Visual, data: VisualData): Record<string, unknown> {
+  const theme = project.theme ?? DEFAULT_PROJECT_THEME;
   const categories = unique(data.rows.map((row) => row.category ?? 'NULL'));
   const seriesNames = visual.seriesField
     ? unique(data.rows.map((row) => row.series ?? 'NULL'))
     : [visual.title];
   const colors = visual.color
-    ? [visual.color, ...project.theme.palette.filter((color) => color.toLowerCase() !== visual.color?.toLowerCase())]
-    : project.theme.palette;
+    ? [visual.color, ...theme.palette.filter((color) => color.toLowerCase() !== visual.color?.toLowerCase())]
+    : theme.palette;
   const format = valueFormatter(project, visual);
-  const background = visual.backgroundColor ?? project.theme.backgroundColor;
+  const background = visual.backgroundColor ?? theme.backgroundColor;
   const foreground = background ? contrastTextColor(background) : css('--vscode-foreground', '#d7dce2');
   const muted = background ? foreground === '#111827' ? '#4b5563' : '#cbd5e1' : css('--vscode-descriptionForeground', '#9ba2ad');
   const gridColor = background ? foreground === '#111827' ? '#d1d5db' : '#3a4250' : css('--vscode-panel-border', '#3a3f47');

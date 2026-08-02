@@ -19,6 +19,7 @@ node_modules/sql.js/**
 !node_modules/sql.js/dist/sql-wasm.js
 !node_modules/sql.js/dist/sql-wasm.wasm
 *.ts
+**/*.d.ts
 tsconfig.json
 vitest.config.mts
 eslint.config.mjs

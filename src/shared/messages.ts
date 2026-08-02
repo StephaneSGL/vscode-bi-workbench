@@ -65,8 +65,10 @@ export const WebviewRequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('clearTemporaryFilters'), reportId: IdSchema, pageId: IdSchema }),
   z.object({ type: z.literal('loadPage'), reportId: IdSchema, pageId: IdSchema }),
   z.object({ type: z.literal('exportReport'), reportId: IdSchema, pageId: IdSchema }),
+  z.object({ type: z.literal('exportPowerBiProject') }),
   z.object({ type: z.literal('exportVisual'), reportId: IdSchema, pageId: IdSchema, visualId: IdSchema, format: z.enum(['csv', 'json']) }),
   z.object({ type: z.literal('openSettings') }),
+  z.object({ type: z.literal('openCopilot') }),
   z.object({ type: z.literal('showLogs') }),
   z.object({ type: z.literal('openHelp') })
 ]);

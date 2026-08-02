@@ -4,7 +4,7 @@ import plugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    ignores: ['dist/**', 'artifacts/**', 'coverage/**', 'node_modules/**', '.vscode-test/**']
+    ignores: ['dist/**', 'artifacts/**', 'coverage/**', 'node_modules/**', '.vscode-test/**', 'output/**']
   },
   eslint.configs.recommended,
   {

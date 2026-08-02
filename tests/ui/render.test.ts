@@ -9,6 +9,8 @@ describe('workbench UI rendering', () => {
     const html = renderApp(initialWorkbenchState(), { transformationSteps: [] });
     document.body.innerHTML = html;
     expect(document.querySelector('[data-action="create-project"]')).not.toBeNull();
+    expect(document.querySelector('.ribbon')).not.toBeNull();
+    expect(document.querySelector('[data-action="open-copilot"]')).not.toBeNull();
     expect(document.body.textContent).toContain('Build a real local data project');
   });
 
@@ -31,6 +33,10 @@ describe('workbench UI rendering', () => {
     expect(document.querySelector('#visual-width')).not.toBeNull();
     expect(document.querySelector('[data-action="delete-report"]')).not.toBeNull();
     expect(document.querySelector('[data-action="delete-page"]')).not.toBeNull();
+    expect(document.querySelector('.report-studio')).not.toBeNull();
+    expect(document.querySelector('.report-inspector')).not.toBeNull();
+    expect(document.querySelector('.filters-pane')).not.toBeNull();
+    expect(document.querySelector('.fields-pane')).not.toBeNull();
     expect(document.querySelector('#chart-v')).not.toBeNull();
     expect(document.querySelector<HTMLElement>('[data-visual-id="v"]')?.getAttribute('style')).toContain('--visual-foreground:#111827');
     expect(document.body.textContent).toContain('Revenue');
@@ -53,6 +59,20 @@ describe('workbench UI rendering', () => {
     expect(values).toHaveLength(2);
     expect(values[0]?.dataset.tableId).toBe('t');
     expect(JSON.parse(decodeURIComponent(values[0]?.dataset.value ?? ''))).toBe('North');
+  });
+
+  it('falls back to the default theme while a legacy project state is being migrated', () => {
+    const project = createEmptyProject('Legacy retail');
+    project.tables.push({ id: 't', name: 'Sales', physicalName: 'sales', kind: 'imported', columns: [{ name: 'amount', dataType: 'BIGINT', nullable: true }], rowCount: 1, transformations: [] });
+    project.reports[0]?.pages[0]?.visuals.push({ id: 'k', title: 'Revenue', type: 'kpi', tableId: 't', valueField: 'amount', aggregation: 'sum', columns: [], limit: 100, width: 4, height: 4 });
+    delete (project as Partial<typeof project>).theme;
+    const state = initialWorkbenchState();
+    state.project = project;
+    state.activeSection = 'reports';
+    state.selectedReportId = project.reports[0]?.id;
+    state.selectedPageId = project.reports[0]?.pages[0]?.id;
+
+    expect(() => renderApp(state, { transformationSteps: [] })).not.toThrow();
   });
 
   it('renders editable semantic metadata, measures, and themes', () => {

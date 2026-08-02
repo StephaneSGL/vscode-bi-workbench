@@ -9,6 +9,7 @@ import type { HostMessage, WebviewRequest } from '../shared/messages.js';
 import type { QueryResult } from '../shared/project.js';
 import { initialWorkbenchState, type WorkbenchSection } from '../shared/state.js';
 import { WorkbenchPanel } from './workbenchPanel.js';
+import { promptPowerBiExport } from './powerBiExportUi.js';
 
 interface OpenFocus {
   section?: WorkbenchSection;
@@ -52,6 +53,7 @@ export class ExtensionController implements vscode.Disposable {
       vscode.commands.registerCommand('biWorkbench.importData', async () => this.importData()),
       vscode.commands.registerCommand('biWorkbench.saveProject', async () => this.saveProject()),
       vscode.commands.registerCommand('biWorkbench.exportReport', async () => this.exportCurrentReport()),
+      vscode.commands.registerCommand('biWorkbench.exportPowerBiProject', async () => this.exportPowerBiProject()),
       vscode.commands.registerCommand('biWorkbench.showLogs', () => this.logger.show()),
       vscode.commands.registerCommand('biWorkbench.openHelp', async () => this.openHelp())
     ];
@@ -195,6 +197,33 @@ export class ExtensionController implements vscode.Disposable {
       throw new Error('No report page is available to export.');
     }
     await this.exportReport(report.id, pageId);
+  }
+
+  async exportPowerBiProject(): Promise<void> {
+    this.requireProject();
+    try {
+      const prompted = await promptPowerBiExport(this.manager, { confirmWrite: true });
+      if (prompted.cancelled) return;
+      const { result } = prompted;
+      this.logger.info(`Power BI project exported: ${result.counts.tables} tables, ${result.counts.measures} measures, ${result.counts.visuals} visuals, ${result.warnings.length} warnings.`);
+      for (const warning of result.warnings) this.logger.info(`Power BI export warning: ${warning}`);
+      const action = await vscode.window.showInformationMessage(
+        `Power BI project exported to ${path.basename(result.targetDirectory)} (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'}).`,
+        'Open in Power BI',
+        'Show in Folder',
+        ...(result.warnings.length > 0 ? ['Show Warnings'] : [])
+      );
+      if (action === 'Open in Power BI') {
+        await vscode.env.openExternal(vscode.Uri.file(result.pbipFile));
+      } else if (action === 'Show in Folder') {
+        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.pbipFile));
+      } else if (action === 'Show Warnings') {
+        this.logger.show();
+      }
+    } catch (error) {
+      this.logger.error('Export Power BI project', error);
+      await vscode.window.showErrorMessage(`Power BI export failed: ${this.errorMessage(error)}`);
+    }
   }
 
   dispose(): void {
@@ -406,11 +435,17 @@ export class ExtensionController implements vscode.Disposable {
       case 'exportReport':
         await this.exportReport(request.reportId, request.pageId);
         return;
+      case 'exportPowerBiProject':
+        await this.exportPowerBiProject();
+        return;
       case 'exportVisual':
         await this.exportVisual(request.reportId, request.pageId, request.visualId, request.format);
         return;
       case 'openSettings':
         await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:stephanesgl.vscode-bi-workbench');
+        return;
+      case 'openCopilot':
+        await vscode.commands.executeCommand('workbench.action.chat.open');
         return;
       case 'showLogs':
         this.logger.show();

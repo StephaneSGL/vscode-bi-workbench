@@ -1,4 +1,4 @@
-BI Workbench 0.2.0 third-party license texts
+BI Workbench 0.3.0 third-party license texts
 Generated deterministically by scripts/collectLicenses.mjs.
 
 @duckdb/node-api 1.5.5-r.3 (MIT)
