@@ -45,7 +45,9 @@ The clean Extension Host proves that the four tools are accepted by VS Code and 
 
 ## Public CI evidence
 
-The v0.2 branch/PR Windows workflow is the remaining remote release gate at the time of this local report. It must run `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package` and artifact upload before the draft PR is described as green. The final PR handoff records the remote run URL and state.
+The public draft [PR #1](https://github.com/StephaneSGL/vscode-bi-workbench/pull/1) ran the Windows `windows-validation` job successfully on product/CI-fix commit `2794198b6b4ada119311860aff9f8404e42a4a55`. [GitHub Actions run 30726121100](https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30726121100) completed in 2m11s and passed `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package` and `actions/upload-artifact`. The uploaded artifact is named `vscode-bi-workbench-windows-x64`.
+
+The first PR run had already passed the product tests and package construction but failed because the upload step still named the v0.1 VSIX. Commit `2794198` changed only that path to the v0.2 file; the next complete run passed. This report does not hide the failed release-infrastructure attempt or misclassify it as a product-test failure.
 
 ## Non-product warnings observed
 

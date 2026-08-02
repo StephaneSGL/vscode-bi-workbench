@@ -21,7 +21,7 @@ The v0.2 objective is a functional VS Code BI application in which users can con
 | GitHub Copilot assistance | Four tools declared and registered in Extension Host; participant tool loop; confirmation messages; manager-backed report/visual application and visual-query validation | Proven at registration and implementation level | Invocation requires a Chat-issued tool token; a real provider subscription/model session is user-owned and unavailable in the clean automated host; measure/transform apply tools remain planned |
 | Privacy and security | Workspace Trust, schema-only default, bounded read-only guard, write-tool confirmations, no telemetry, dependency/license/secret scans | Proven for current paths | Every future server connector needs credential/TLS threat-model work |
 | Automated and visual verification | 41 automated tests, Chromium interaction/visual QA at two viewport sizes, zero browser console messages, Extension Host and installed-package checks | Proven for v0.2 scope | Performance/load and formal accessibility audits remain future gates |
-| Public source and delivery | Public repository and green v0.1 release already exist; v0.2 is prepared on an `agent/*` branch with draft-PR/CI gate | Pending remote v0.2 evidence | Do not claim v0.2 public CI until the branch, PR and checks are visible remotely |
+| Public source and delivery | Public repository, v0.2 branch, draft PR #1 and successful Windows run 30726121100 with uploaded VSIX artifact | Proven for source, PR and CI artifact | PR remains intentionally unmerged; Marketplace/Open VSX publication is not claimed |
 
 ## Release decision
 
