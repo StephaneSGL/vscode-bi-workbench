@@ -22,7 +22,7 @@ The v0.3 objective is a functional VS Code BI application in which users can con
 | Privacy and security | Workspace Trust, schema-only default, bounded read-only guard, write-tool confirmations, no telemetry, dependency/license/secret scans | Proven for current paths | Every future server connector needs credential/TLS threat-model work |
 | Power BI format validation | Synthetic two-table model, relationship, safe DAX translation and all ten visual types; Microsoft `powerbi-report-author` validator; real open, relationship update and CSV refresh in Power BI Desktop `2.156.951.0` | Proven for the documented v0.3 fixture with zero PBIR errors and no Desktop error dialog | Future Desktop/schema revisions and unsupported visuals/filters still require adapter tests |
 | Automated and visual verification | 47 automated tests, repeated package validation, Chromium light/dark review with zero console errors, Extension Host, archive audit, forced install and installed DuckDB/SQLite queries | Proven locally for v0.3 | Public Windows CI remains a separate gate and is recorded in `TEST_REPORT.md` |
-| Public source and delivery | Public repository, v0.2 branch and draft PR #1; v0.3 changes remain on the same review branch until final push/CI | Source is public; v0.3 CI pending at this audit edit | PR remains intentionally unmerged; Marketplace/Open VSX publication is not claimed |
+| Public source and delivery | Public repository and draft PR #1; v0.3 product commit `7cf065e`; Windows Actions run 30740825458 passed validation, Extension Host, packaging and artifact upload | Public source and v0.3 product CI proven | PR remains intentionally unmerged; Marketplace/Open VSX publication is not claimed |
 
 ## Release decision
 

@@ -54,7 +54,7 @@ It does not prove direct PBIX generation, PBIP-to-PBIX Save As, tenant publishin
 
 ## Public CI evidence
 
-The public draft [PR #1](https://github.com/StephaneSGL/vscode-bi-workbench/pull/1) contains the v0.3 work on branch `agent/configurable-bi-v0.2`. The final Windows CI run will be recorded here after the branch push; local success is not used as a substitute for remote CI.
+The public draft [PR #1](https://github.com/StephaneSGL/vscode-bi-workbench/pull/1) contains the v0.3 work on branch `agent/configurable-bi-v0.2`. Product commit `7cf065e` passed public [GitHub Actions run 30740825458](https://github.com/StephaneSGL/vscode-bi-workbench/actions/runs/30740825458) in 2m28s. The Windows job passed `npm ci`, `npm run validate`, `npm run test:extension`, `npm run package` and `actions/upload-artifact`; the uploaded artifact is named `vscode-bi-workbench-windows-x64`.
 
 ## Non-product warnings observed
 
