@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
+  <title id="title">BI Workbench logo</title>
+  <desc id="description">A rising analytical chart with a connected data line on a dark rounded square.</desc>
+  <defs>
+    <linearGradient id="surface" x1="30" y1="18" x2="226" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17233F"/>
+      <stop offset="1" stop-color="#0B1020"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="66" y1="190" x2="190" y2="62" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5B7CFA"/>
+      <stop offset="1" stop-color="#9BAEFF"/>
+    </linearGradient>
+    <linearGradient id="line" x1="47" y1="156" x2="207" y2="82" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38B2AC"/>
+      <stop offset="1" stop-color="#67E8F9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#020617" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+
+  <rect x="12" y="12" width="232" height="232" rx="54" fill="url(#surface)" filter="url(#shadow)"/>
+  <rect x="13" y="13" width="230" height="230" rx="53" fill="none" stroke="#9BAEFF" stroke-opacity="0.22" stroke-width="2"/>
+
+  <g stroke="#C7D2FE" stroke-opacity="0.10" stroke-width="1">
+    <path d="M44 72H212M44 112H212M44 152H212M44 192H212"/>
+    <path d="M56 48V204M96 48V204M136 48V204M176 48V204M216 48V204"/>
+  </g>
+
+  <path d="M45 198H211" fill="none" stroke="#E2E8F0" stroke-opacity="0.42" stroke-linecap="round" stroke-width="4"/>
+  <g fill="url(#bars)">
+    <rect x="56" y="142" width="26" height="56" rx="8"/>
+    <rect x="95" y="116" width="26" height="82" rx="8"/>
+    <rect x="134" y="88" width="26" height="110" rx="8"/>
+    <rect x="173" y="58" width="26" height="140" rx="8"/>
+  </g>
+  <g fill="#0F172A" fill-opacity="0.20">
+    <rect x="62" y="149" width="14" height="43" rx="5"/>
+    <rect x="101" y="123" width="14" height="69" rx="5"/>
+    <rect x="140" y="95" width="14" height="97" rx="5"/>
+    <rect x="179" y="65" width="14" height="127" rx="5"/>
+  </g>
+
+  <path d="M49 161L76 146L108 153L146 114L181 121L207 86" fill="none" stroke="#07111F" stroke-opacity="0.58" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+  <path d="M49 161L76 146L108 153L146 114L181 121L207 86" fill="none" stroke="url(#line)" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"/>
+  <g fill="#D9FFFC" stroke="#38B2AC" stroke-width="4">
+    <circle cx="49" cy="161" r="6"/>
+    <circle cx="76" cy="146" r="6"/>
+    <circle cx="108" cy="153" r="6"/>
+    <circle cx="146" cy="114" r="6"/>
+    <circle cx="181" cy="121" r="6"/>
+    <circle cx="207" cy="86" r="6"/>
+  </g>
+</svg>

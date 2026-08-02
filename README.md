@@ -1,10 +1,44 @@
-# BI Workbench for Visual Studio Code
+<p align="center">
+  <img src="media/bi-workbench-logo.png" alt="BI Workbench logo" width="136">
+</p>
 
-BI Workbench is an independent, local-first Business Intelligence extension for Visual Studio Code. It combines file and database ingestion, embedded DuckDB analytics, repeatable transformations, a semantic model, configurable interactive dashboards, and GitHub Copilot assistance in one versioned project.
+<h1 align="center">BI Workbench</h1>
 
-This project is not affiliated with Microsoft and is not Power BI. It does not read PBIX files, implement DAX or Power Query M, or copy Microsoft code, assets, proprietary formats, or product behavior.
+<p align="center">
+  <strong>Local-first business intelligence inside Visual Studio Code.</strong><br>
+  Import data, transform it with DuckDB, model relationships, build interactive reports<br>
+  and collaborate with GitHub Copilot in one version-controlled workspace.
+</p>
 
-## Release status
+<p align="center">
+  <a href="https://github.com/StephaneSGL/vscode-bi-workbench/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/StephaneSGL/vscode-bi-workbench/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/version-0.2.0-5B7CFA?style=flat-square" alt="Version 0.2.0">
+  <img src="https://img.shields.io/badge/VS%20Code-%E2%89%A51.125.0-007ACC?style=flat-square" alt="VS Code 1.125.0 or newer">
+  <img src="https://img.shields.io/badge/platform-Windows%20x64-38B2AC?style=flat-square" alt="Windows x64">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0F172A?style=flat-square" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="#install-the-vsix">Install</a> &middot;
+  <a href="#first-complete-workflow">First workflow</a> &middot;
+  <a href="#github-copilot-integration">Copilot</a> &middot;
+  <a href="#build-and-test-from-source">Build and test</a> &middot;
+  <a href="docs/UI_SPEC.md">Interface inventory</a> &middot;
+  <a href="docs/RESEARCH.md">Research</a>
+</p>
+
+---
+
+BI Workbench turns a folder into a reviewable analytics project. The data engine runs locally, report metadata stays in JSON, and the extension does not require Python, Jupyter, a database server, an API key or a Power BI tenant.
+
+| Analyze locally | Build real reports | Work with Copilot |
+| --- | --- | --- |
+| Import files and databases into embedded DuckDB. Run bounded read-only SQL and repeatable transformations. | Define semantic metadata, relationships and SQL measures. Create interactive dashboards with filters and cross-filtering. | Ask `@bi` for analysis, SQL and report configuration. Every data-sharing or project-writing tool remains policy- and confirmation-gated. |
+
+> [!IMPORTANT]
+> BI Workbench is an independent open-source project. It is not affiliated with Microsoft and is not Power BI. It does not read PBIX files, implement DAX or Power Query M, or copy Microsoft code, assets, proprietary formats or product behavior.
+
+## What works today
 
 Version `0.2.0` is a genuinely usable Windows x64 release, not a full Power BI replacement. The source is designed for desktop VS Code, but the packaged native DuckDB runtime is validated on Windows x64 only.
 

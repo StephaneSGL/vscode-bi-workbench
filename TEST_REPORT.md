@@ -28,8 +28,8 @@ This report separates core behavior tests, real-browser webview QA, clean Extens
 | UI DOM suite | `npm run test:ui` | Pass: 2 files, 5/5 tests. |
 | Browser interaction | Playwright CLI against the built webview in headed Chromium | Pass. Existing multi-series visual edited (width, color, labels), slicer created a temporary filter chip, visual moved, and responsive render inspected at approximately 988x485 and 900x700. Final console: 0 errors, 0 warnings. |
 | VS Code Extension Host | `npm run test:extension` with VS Code 1.130.0 | Pass after production build. The extension activated, declared commands/tools were registered, and `biWorkbench.open` produced a `BI Workbench` webview tab. Host exit code 0. |
-| Package | `npm run package` | Pass. 36 VSIX files, 14,532,719 bytes (13.86 MiB). Package reran all 41 tests and production builds. |
-| Package SHA-256 | `Get-FileHash -Algorithm SHA256` | `D6C512D8BF8C9EBC306186C907CA056EF4226C9B8A875E0590FA3661E946FA01` |
+| Package | `npm run package` | Pass. 38 VSIX files, 14,598,533 bytes (13.92 MiB). Package reran all 41 tests and production builds. |
+| Package SHA-256 | `Get-FileHash -Algorithm SHA256` | `55CF57F5BDB056AB80439CE289CDFB9AF04523337BA86F812482FE3ED7E0ACA4` |
 | Package contents | ZIP entry audit | Pass. Project schema, four required `sql.js` files including WASM, Windows x64 DuckDB DLL, notices and 46,583-byte collected license file are present; tests and source maps are absent. |
 | Installation | `code --install-extension artifacts\vscode-bi-workbench-0.2.0.vsix --force` | Pass. VS Code reported successful installation. |
 | Installed identity | `code --list-extensions --show-versions` | `stephanesgl.vscode-bi-workbench@0.2.0` present. |
