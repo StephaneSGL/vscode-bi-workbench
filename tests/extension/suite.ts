@@ -31,6 +31,10 @@ export async function run(): Promise<void> {
     assert.ok(view, `Expected ${viewId} to be contributed to the standard Explorer sidebar.`);
     assert.equal(view.visibility, 'visible', `Expected ${viewId} to be visible by default.`);
   }
+  assert.equal(extension.packageJSON.icon, 'media/bi-workbench-logo.png');
+  assert.equal(extension.packageJSON.galleryBanner?.color, '#0B1020');
+  const icon = await vscode.workspace.fs.stat(vscode.Uri.joinPath(extension.extensionUri, extension.packageJSON.icon));
+  assert.ok(icon.size > 0, 'The packaged extension icon must exist and be non-empty.');
   assert.equal(extension.packageJSON.version, '0.2.0');
   assert.equal(extension.packageJSON.capabilities.untrustedWorkspaces.supported, false);
 }

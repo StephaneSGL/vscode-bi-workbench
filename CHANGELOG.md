@@ -20,6 +20,7 @@ All notable changes to BI Workbench are documented here.
 ### Changed
 
 - Project, semantic-model and report trees now appear directly in the standard Explorer sidebar, matching the discoverable placement used by Excel AI & VBA Studio.
+- The VS Code extension card now uses the BI Workbench color logo and a matching dark gallery banner.
 - The `@bi` participant now runs a bounded language-model tool loop and feeds exact tool results back to the model.
 - Visual action controls and KPI typography now adapt to narrow dashboard cards.
 - ECharts uses its current outer-bounds layout API and disconnects resize observers before disposal.

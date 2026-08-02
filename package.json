@@ -5,6 +5,11 @@
   "version": "0.2.0",
   "publisher": "stephanesgl",
   "license": "MIT",
+  "icon": "media/bi-workbench-logo.png",
+  "galleryBanner": {
+    "color": "#0B1020",
+    "theme": "dark"
+  },
   "homepage": "https://github.com/StephaneSGL/vscode-bi-workbench#readme",
   "repository": {
     "type": "git",
