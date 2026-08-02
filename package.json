@@ -58,7 +58,7 @@
       },
       {
         "command": "biWorkbench.createProject",
-        "title": "Create BI Project",
+        "title": "Create New Project",
         "category": "BI Workbench",
         "icon": "$(new-folder)"
       },

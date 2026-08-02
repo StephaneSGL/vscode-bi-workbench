@@ -82,12 +82,14 @@ export class ExtensionController implements vscode.Disposable {
 
   async createProject(): Promise<void> {
     const name = await vscode.window.showInputBox({
-      title: 'Create BI Project',
+      title: 'BI Workbench: Create New Project',
       prompt: 'Project name',
       value: 'My BI Project',
       validateInput: (value) => value.trim() ? undefined : 'Enter a project name.'
     });
     if (!name) {
+      this.logger.info('Create project cancelled before a project name was provided.');
+      await vscode.window.showInformationMessage('BI Workbench: project creation cancelled. No project name was provided.');
       return;
     }
     const parentSelection = await vscode.window.showOpenDialog({
@@ -98,6 +100,8 @@ export class ExtensionController implements vscode.Disposable {
       defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri
     });
     if (!parentSelection?.[0]) {
+      this.logger.info('Create project cancelled before a parent folder was selected.');
+      await vscode.window.showInformationMessage('BI Workbench: project creation cancelled. No parent folder was selected.');
       return;
     }
     const folderName = normalizePhysicalName(name, 'bi-project').replaceAll('_', '-');

@@ -16,6 +16,9 @@ export async function run(): Promise<void> {
   ]) {
     assert.ok(commands.includes(command), `Expected command ${command} to be registered.`);
   }
+  const contributedCommands = extension.packageJSON.contributes?.commands ?? [];
+  const createProjectCommand = contributedCommands.find((command: { command?: string }) => command.command === 'biWorkbench.createProject');
+  assert.equal(createProjectCommand?.title, 'Create New Project', 'The Command Palette label must match the documented project-creation command.');
   const tools = vscode.lm.tools.map((tool) => tool.name);
   for (const tool of [
     'vscode-bi-workbench_getProjectSchema',

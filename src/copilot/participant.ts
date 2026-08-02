@@ -29,7 +29,7 @@ export function registerCopilotParticipant(
 
     if (!manager.project) {
       stream.markdown('No BI Workbench project is open. Create or open a project, import data, then ask again.');
-      stream.button({ command: 'biWorkbench.createProject', title: 'Create BI Project' });
+      stream.button({ command: 'biWorkbench.createProject', title: 'Create New Project' });
       return { metadata: { command, sharingMode } };
     }
 

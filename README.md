@@ -88,7 +88,7 @@ The public source repository is [`StephaneSGL/vscode-bi-workbench`](https://gith
 
 ## First complete workflow
 
-1. Run `BI Workbench: Create BI Project` and choose a parent directory.
+1. Run `BI Workbench: Create New Project`, enter a project name, then choose a parent directory.
 2. Open **Import** and select CSV, TSV, JSON, JSONL, NDJSON, XLSX, Parquet, DuckDB, SQLite or mixed local files. Source files are read or copied; they are never modified.
 3. Inspect a table on **Data** and run **Profile columns**.
 4. Use **Query** for bounded read-only DuckDB SQL, for example:
