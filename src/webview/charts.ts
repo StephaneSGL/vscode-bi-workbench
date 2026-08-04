@@ -3,6 +3,7 @@ import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from 
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { DEFAULT_PROJECT_THEME, type BiProject, type DisplayFormat, type Visual, type VisualData } from '../shared/project.js';
+import { contrastTextColor } from '../shared/presentation.js';
 import type { WorkbenchState } from '../shared/state.js';
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, AriaComponent, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
@@ -167,15 +168,6 @@ function legendOptions(visual: Visual, relevant: boolean, foreground: string): R
     case 'left': return { ...base, left: 0, top: 'middle', orient: 'vertical' };
     case 'bottom': return { ...base, bottom: 0, left: 'center' };
   }
-}
-
-function contrastTextColor(background: string): '#111827' | '#f3f4f6' {
-  const red = Number.parseInt(background.slice(1, 3), 16) / 255;
-  const green = Number.parseInt(background.slice(3, 5), 16) / 255;
-  const blue = Number.parseInt(background.slice(5, 7), 16) / 255;
-  const linear = [red, green, blue].map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
-  return luminance > 0.45 ? '#111827' : '#f3f4f6';
 }
 
 function displayFieldName(project: BiProject, tableId: string, field?: string): string {

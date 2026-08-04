@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
   MeasureSchema,
   PageFilterSchema,
@@ -463,15 +462,6 @@ export class ProjectManager {
       throw new Error('Report page not found.');
     }
     return page;
-  }
-
-  databaseFileSizePath(): string | undefined {
-    return this.opened?.databaseFile;
-  }
-
-  sourceAbsolutePath(location: string): string {
-    const opened = this.requireOpened();
-    return path.isAbsolute(location) ? location : path.resolve(opened.projectDirectory, location.replaceAll('/', path.sep));
   }
 
   private async activate(opened: OpenedProject): Promise<void> {

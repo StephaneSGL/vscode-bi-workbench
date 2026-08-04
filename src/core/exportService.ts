@@ -1,4 +1,5 @@
 import type { ReportPage, VisualData } from '../shared/project.js';
+import { escapeHtml } from '../shared/presentation.js';
 
 const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
@@ -53,14 +54,4 @@ export function createStandaloneReportHtml(page: ReportPage, data: readonly Visu
   </script>
 </body>
 </html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[character] ?? character);
 }

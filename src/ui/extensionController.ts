@@ -505,11 +505,7 @@ export class ExtensionController implements vscode.Disposable {
 
   private async exportReport(reportId: string, pageId: string): Promise<void> {
     const project = this.requireProject();
-    const report = project.reports.find((candidate) => candidate.id === reportId);
-    const page = report?.pages.find((candidate) => candidate.id === pageId);
-    if (!page) {
-      throw new Error('Report page not found.');
-    }
+    const page = this.manager.requirePage(reportId, pageId);
     const projectDirectory = this.manager.projectDirectory;
     if (!projectDirectory) {
       throw new Error('The project directory is unavailable.');

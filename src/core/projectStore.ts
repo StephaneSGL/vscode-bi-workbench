@@ -95,20 +95,6 @@ export class ProjectStore {
     return validated;
   }
 
-  relativeSourceLocation(projectDirectory: string, sourcePath: string): string {
-    const relative = path.relative(projectDirectory, sourcePath);
-    if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
-      return relative.replaceAll(path.sep, '/');
-    }
-    return path.resolve(sourcePath);
-  }
-
-  resolveSourceLocation(projectDirectory: string, storedLocation: string): string {
-    return path.isAbsolute(storedLocation)
-      ? storedLocation
-      : path.resolve(projectDirectory, storedLocation.replaceAll('/', path.sep));
-  }
-
   private resolveOpened(projectFile: string, project: BiProject): OpenedProject {
     const projectDirectory = path.dirname(projectFile);
     return {

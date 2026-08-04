@@ -5,7 +5,7 @@ import path from 'node:path';
 import readXlsxFile from 'read-excel-file/node';
 import initSqlJs from 'sql.js';
 import type { BiProject, DataSource, SourceKind, TableModel } from '../shared/project.js';
-import type { DuckDbEngine, DuckDbTransaction } from './duckdbEngine.js';
+import type { DuckDbEngine } from './duckdbEngine.js';
 import { escapeSqlString, quoteIdentifier, uniquePhysicalName } from './sql.js';
 
 interface RuntimeRequire {
@@ -24,6 +24,13 @@ export interface ImportOptions {
 export interface ImportResult {
   source: DataSource;
   tables: TableModel[];
+}
+
+interface StagedTable {
+  physicalName: string;
+  displayName: string;
+  emptyColumnsSql: string;
+  tempFile?: string;
 }
 
 export class ImportService {
@@ -139,12 +146,7 @@ export class ImportService {
       throw new Error('No BI project database is open.');
     }
     const tempFiles: string[] = [];
-    const definitions: {
-      physicalName: string;
-      displayName: string;
-      columns: string[];
-      tempFile?: string;
-    }[] = [];
+    const definitions: StagedTable[] = [];
 
     try {
       for (const [sheetIndex, sheet] of sheets.entries()) {
@@ -170,7 +172,8 @@ export class ImportService {
         );
         const dataRows = sheet.data.slice(1);
         if (dataRows.length === 0) {
-          definitions.push({ physicalName, displayName, columns });
+          const emptyColumnsSql = columns.map((column) => `${quoteIdentifier(column)} VARCHAR`).join(', ');
+          definitions.push({ physicalName, displayName, emptyColumnsSql });
           continue;
         }
 
@@ -185,26 +188,14 @@ export class ImportService {
         });
         await writeFile(tempFile, `${lines.join('\n')}\n`, { encoding: 'utf8', mode: 0o600 });
         tempFiles.push(tempFile);
-        definitions.push({ physicalName, displayName, columns, tempFile });
+        definitions.push({ physicalName, displayName, emptyColumnsSql: '', tempFile });
       }
 
       if (definitions.length === 0) {
         throw new Error('The XLSX workbook contains no non-empty worksheets.');
       }
 
-      await this.engine.transaction(async (transaction) => {
-        for (const definition of definitions) {
-          if (definition.tempFile) {
-            await transaction.run(
-              `CREATE TABLE ${quoteIdentifier(definition.physicalName)} AS SELECT * FROM read_json_auto(?, format = 'newline_delimited', union_by_name = true)`,
-              [definition.tempFile]
-            );
-          } else {
-            const columnsSql = definition.columns.map((column) => `${quoteIdentifier(column)} VARCHAR`).join(', ');
-            await transaction.run(`CREATE TABLE ${quoteIdentifier(definition.physicalName)} (${columnsSql})`);
-          }
-        }
-      });
+      await this.materializeStagedTables(definitions);
       return definitions.map(({ physicalName, displayName }) => ({ physicalName, displayName }));
     } finally {
       await Promise.all(tempFiles.map(async (tempFile) => rm(tempFile, { force: true })));
@@ -276,12 +267,7 @@ export class ImportService {
     const sourceBytes = await readFile(filePath);
     const database = new SQL.Database(new Uint8Array(sourceBytes));
     const tempFiles: string[] = [];
-    const definitions: {
-      physicalName: string;
-      displayName: string;
-      tempFile?: string;
-      emptyColumns: { name: string; type: string }[];
-    }[] = [];
+    const definitions: StagedTable[] = [];
 
     try {
       const tableResult = database.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")[0];
@@ -326,34 +312,38 @@ export class ImportService {
         }
 
         if (rowCount > 0) {
-          definitions.push({ physicalName, displayName, tempFile, emptyColumns: [] });
+          definitions.push({ physicalName, displayName, emptyColumnsSql: '', tempFile });
         } else {
           await rm(tempFile, { force: true });
-          definitions.push({ physicalName, displayName, emptyColumns: sqliteTableColumns(database, sourceTable) });
+          const emptyColumnsSql = sqliteTableColumns(database, sourceTable)
+            .map((column) => `${quoteIdentifier(column.name)} ${sqliteTypeToDuckDb(column.type)}`)
+            .join(', ');
+          if (!emptyColumnsSql) throw new Error(`SQLite table "${displayName}" has no columns.`);
+          definitions.push({ physicalName, displayName, emptyColumnsSql });
         }
       }
 
-      await this.engine.transaction(async (transaction) => {
-        for (const definition of definitions) {
-          if (definition.tempFile) {
-            await transaction.run(
-              `CREATE TABLE ${quoteIdentifier(definition.physicalName)} AS SELECT * FROM read_json_auto(?, format = 'newline_delimited', union_by_name = true)`,
-              [definition.tempFile]
-            );
-          } else {
-            const columnsSql = definition.emptyColumns.map((column) => `${quoteIdentifier(column.name)} ${sqliteTypeToDuckDb(column.type)}`).join(', ');
-            if (!columnsSql) {
-              throw new Error(`SQLite table "${definition.displayName}" has no columns.`);
-            }
-            await transaction.run(`CREATE TABLE ${quoteIdentifier(definition.physicalName)} (${columnsSql})`);
-          }
-        }
-      });
+      await this.materializeStagedTables(definitions);
       return definitions.map(({ physicalName, displayName }) => ({ physicalName, displayName }));
     } finally {
       database.close();
       await Promise.all(tempFiles.map(async (tempFile) => rm(tempFile, { force: true })));
     }
+  }
+
+  private async materializeStagedTables(definitions: readonly StagedTable[]): Promise<void> {
+    await this.engine.transaction(async (transaction) => {
+      for (const definition of definitions) {
+        if (definition.tempFile) {
+          await transaction.run(
+            `CREATE TABLE ${quoteIdentifier(definition.physicalName)} AS SELECT * FROM read_json_auto(?, format = 'newline_delimited', union_by_name = true)`,
+            [definition.tempFile]
+          );
+        } else {
+          await transaction.run(`CREATE TABLE ${quoteIdentifier(definition.physicalName)} (${definition.emptyColumnsSql})`);
+        }
+      }
+    });
   }
 
   private async hasSqliteHeader(filePath: string): Promise<boolean> {
@@ -429,8 +419,4 @@ function sqliteTypeToDuckDb(type: string): string {
   if (/(REAL|FLOA|DOUB|NUMERIC|DECIMAL)/.test(normalized)) return 'DOUBLE';
   if (normalized.includes('BOOL')) return 'BOOLEAN';
   return 'VARCHAR';
-}
-
-export async function detachIfPresent(transaction: DuckDbTransaction, alias: string): Promise<void> {
-  await transaction.run(`DETACH ${quoteIdentifier(alias)}`);
 }

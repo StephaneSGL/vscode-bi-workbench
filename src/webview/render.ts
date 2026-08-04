@@ -1,4 +1,5 @@
 import { DEFAULT_PROJECT_THEME, type BiProject, type ColumnProfile, type QueryResult, type ReportPage, type TableModel, type TransformationStep, type Visual, type VisualData } from '../shared/project.js';
+import { contrastTextColor, escapeHtml } from '../shared/presentation.js';
 import type { WorkbenchSection, WorkbenchState } from '../shared/state.js';
 
 export interface UiDraft {
@@ -365,19 +366,6 @@ function formatDisplayValue(value: unknown, format: string, currency: string, de
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
-}
-
-function contrastTextColor(background: string): '#111827' | '#f3f4f6' {
-  const red = Number.parseInt(background.slice(1, 3), 16) / 255;
-  const green = Number.parseInt(background.slice(3, 5), 16) / 255;
-  const blue = Number.parseInt(background.slice(5, 7), 16) / 255;
-  const linear = [red, green, blue].map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
-  return luminance > 0.45 ? '#111827' : '#f3f4f6';
-}
-
-export function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
 }
 
 function escapeAttribute(value: string): string {

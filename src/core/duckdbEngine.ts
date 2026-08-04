@@ -15,10 +15,6 @@ export class DuckDbEngine {
   private databasePath?: string;
   private queue: Promise<void> = Promise.resolve();
 
-  get isOpen(): boolean {
-    return this.connection !== undefined;
-  }
-
   get path(): string | undefined {
     return this.databasePath;
   }
@@ -102,16 +98,7 @@ export class DuckDbEngine {
   async transaction<T>(operation: (transaction: DuckDbTransaction) => Promise<T>): Promise<T> {
     return this.enqueue(async (connection) => {
       await connection.run('BEGIN TRANSACTION');
-      const transaction: DuckDbTransaction = {
-        run: async (sql, values = []) => {
-          await connection.run(sql, [...values]);
-        },
-        query: async (sql, values = [], limit) => {
-          const started = performance.now();
-          const reader = await connection.runAndReadAll(sql, [...values]);
-          return this.readerToResult(reader, limit, performance.now() - started);
-        }
-      };
+      const transaction = this.executor(connection);
       try {
         const result = await operation(transaction);
         await connection.run('COMMIT');
@@ -128,19 +115,20 @@ export class DuckDbEngine {
   }
 
   async exclusive<T>(operation: (executor: DuckDbTransaction) => Promise<T>): Promise<T> {
-    return this.enqueue(async (connection) => {
-      const executor: DuckDbTransaction = {
-        run: async (sql, values = []) => {
-          await connection.run(sql, [...values]);
-        },
-        query: async (sql, values = [], limit) => {
-          const started = performance.now();
-          const reader = await connection.runAndReadAll(sql, [...values]);
-          return this.readerToResult(reader, limit, performance.now() - started);
-        }
-      };
-      return operation(executor);
-    });
+    return this.enqueue(async (connection) => operation(this.executor(connection)));
+  }
+
+  private executor(connection: DuckDBConnection): DuckDbTransaction {
+    return {
+      run: async (sql, values = []) => {
+        await connection.run(sql, [...values]);
+      },
+      query: async (sql, values = [], limit) => {
+        const started = performance.now();
+        const reader = await connection.runAndReadAll(sql, [...values]);
+        return this.readerToResult(reader, limit, performance.now() - started);
+      }
+    };
   }
 
   async describeTable(tableName: string): Promise<Column[]> {
@@ -155,23 +143,6 @@ export class DuckDbEngine {
   async tableRowCount(tableName: string): Promise<number> {
     const result = await this.queryInternal(`SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName)}`, [], 1);
     return Number(result.rows[0]?.count ?? 0);
-  }
-
-  async tableExists(tableName: string): Promise<boolean> {
-    const result = await this.queryInternal(
-      'SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?',
-      [tableName],
-      1
-    );
-    return Number(result.rows[0]?.count ?? 0) > 0;
-  }
-
-  async listTables(catalog?: string): Promise<string[]> {
-    const result = await this.queryInternal(
-      `SELECT table_name FROM duckdb_tables() WHERE database_name = COALESCE(?, current_database()) AND schema_name = 'main' AND internal = false ORDER BY table_name`,
-      [catalog ?? null]
-    );
-    return result.rows.map((row) => String(row.table_name));
   }
 
   async profileTable(tableName: string, columns: readonly Column[]): Promise<ColumnProfile[]> {
