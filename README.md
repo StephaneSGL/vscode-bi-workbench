@@ -27,16 +27,6 @@
   <a href="docs/RESEARCH.md">Research</a>
 </p>
 
-<!-- graphy-map:start -->
-## Graphy codebase view
-
-[![Graphy codebase view of vscode-bi-workbench showing 81 tracked files, 20 folders, dominant file types and the main areas src, tests, docs, scripts, .vscode.](docs/graphy/overview.png)](docs/graphy/Graphy.md)
-
-*Tracked repository structure: files, folders, dominant extensions and a readable directory preview.*
-
-[Open full size](docs/graphy/overview.png) · [Open the accessible Graphy report](docs/graphy/Graphy.md)
-<!-- graphy-map:end -->
-
 ---
 
 BI Workbench turns a folder into a reviewable analytics project. Its report studio uses a compact command ribbon, Report/Data/Model work areas, a central dashboard canvas and Filters/Visualizations/Data panes while retaining its own identity and VS Code theme integration. The data engine runs locally, report metadata stays in JSON, and the extension does not require Python, Jupyter, a database server, an API key or a Power BI tenant.
