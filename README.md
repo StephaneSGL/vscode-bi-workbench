@@ -30,7 +30,7 @@
 <!-- graphy-map:start -->
 ## Graphy codebase view
 
-[![Graphy codebase view of vscode-bi-workbench showing 66 tracked files, 19 folders, dominant file types and the main areas src, tests, docs, .vscode, scripts.](docs/graphy/overview.png)](docs/graphy/Graphy.md)
+[![Graphy codebase view of vscode-bi-workbench showing 81 tracked files, 20 folders, dominant file types and the main areas src, tests, docs, scripts, .vscode.](docs/graphy/overview.png)](docs/graphy/Graphy.md)
 
 *Tracked repository structure: files, folders, dominant extensions and a readable directory preview.*
 
