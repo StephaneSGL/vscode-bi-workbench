@@ -2,6 +2,7 @@
 .vscode/**
 .vscode-test/**
 .playwright-cli/**
+AI-slop/**
 docs/**
 tests/**
 src/**
