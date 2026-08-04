@@ -4,6 +4,16 @@ BI Workbench is an independent, local-first Business Intelligence extension for 
 
 This project is not affiliated with Microsoft and is not Power BI. It does not read PBIX files, implement DAX or Power Query M, or copy Power BI code, assets, or proprietary behavior.
 
+<!-- graphy-map:start -->
+## Graphy codebase view
+
+[![Graphy codebase view of vscode-bi-workbench showing 66 tracked files, 19 folders, dominant file types and the main areas src, tests, docs, .vscode, scripts.](docs/graphy/overview.png)](docs/graphy/Graphy.md)
+
+*Tracked repository structure: files, folders, dominant extensions and a readable directory preview.*
+
+[Open full size](docs/graphy/overview.png) · [Open the accessible Graphy report](docs/graphy/Graphy.md)
+<!-- graphy-map:end -->
+
 ## Release status
 
 Version `0.1.0` is a usable Windows x64 foundation, not a full Power BI replacement. The source is designed to build on other desktop platforms, but the published v0.1.0 VSIX contains the native DuckDB binding installed and validated on Windows x64.
