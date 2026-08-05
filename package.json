@@ -573,7 +573,8 @@
     "test:integration": "vitest run tests/integration",
     "test:ui": "vitest run tests/ui",
     "test:extension": "npm run build && node ./dist/test/runExtensionTests.js",
-    "validate": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "check:actions": "node ./scripts/checkActionPins.mjs",
+    "validate": "npm run check:actions && npm run typecheck && npm run lint && npm run test && npm run build",
     "package": "npm run validate && node ./scripts/collectLicenses.mjs && node ./scripts/ensureArtifacts.mjs && vsce package --out ./artifacts/vscode-bi-workbench-0.3.0.vsix && node ./scripts/writeChecksum.mjs",
     "vscode:prepublish": "npm run build"
   },
