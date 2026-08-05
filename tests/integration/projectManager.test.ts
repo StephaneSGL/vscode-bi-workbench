@@ -1,8 +1,9 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectManager } from '../../src/core/projectManager.js';
+import type { ProjectStore } from '../../src/core/projectStore.js';
 
 describe('ProjectManager end-to-end', () => {
   let root: string;
@@ -112,4 +113,71 @@ describe('ProjectManager end-to-end', () => {
     expect(manager.project?.reports[0]?.pages[0]?.visuals).toHaveLength(2);
     expect(manager.project?.theme.name).toBe('Ocean');
   });
+
+  it('keeps in-memory metadata unchanged when auto-save fails and permits a retry', async () => {
+    const projectDir = path.join(root, 'atomic-metadata');
+    await manager.create(projectDir, 'Atomic metadata');
+    const before = structuredClone(manager.project);
+    vi.spyOn(privateStore(manager), 'save').mockRejectedValueOnce(new Error('forced metadata save failure'));
+
+    await expect(manager.updateTheme({
+      name: 'Failed theme', primaryColor: '#112233', backgroundColor: '#ffffff', palette: ['#112233']
+    })).rejects.toThrow('forced metadata save failure');
+
+    expect(manager.project).toEqual(before);
+    expect(manager.dirty).toBe(false);
+
+    await manager.updateTheme({
+      name: 'Retried theme', primaryColor: '#445566', backgroundColor: '#ffffff', palette: ['#445566']
+    });
+    expect(manager.project?.theme.name).toBe('Retried theme');
+    expect(JSON.parse(await readFile(manager.projectFile ?? '', 'utf8')).theme.name).toBe('Retried theme');
+  });
+
+  it('drops an imported table when metadata save fails and imports cleanly on retry', async () => {
+    await manager.create(path.join(root, 'atomic-import'), 'Atomic import');
+    const csv = path.join(root, 'sales.csv');
+    await writeFile(csv, 'region,amount\nNorth,10\nSouth,25\n', 'utf8');
+    vi.spyOn(privateStore(manager), 'save').mockRejectedValueOnce(new Error('forced import save failure'));
+
+    await expect(manager.importFile(csv)).rejects.toThrow('forced import save failure');
+    expect(manager.project?.sources).toEqual([]);
+    expect(manager.project?.tables).toEqual([]);
+    expect(await physicalTableCount(manager, 'sales')).toBe(0);
+
+    await manager.importFile(csv);
+    expect(manager.project?.tables.map((table) => table.physicalName)).toEqual(['sales']);
+    expect(await physicalTableCount(manager, 'sales')).toBe(1);
+  });
+
+  it('drops a derived table when metadata save fails and derives cleanly on retry', async () => {
+    await manager.create(path.join(root, 'atomic-derived'), 'Atomic derived table');
+    const csv = path.join(root, 'sales.csv');
+    await writeFile(csv, 'region,amount\nNorth,10\nSouth,25\n', 'utf8');
+    await manager.importFile(csv);
+    const sourceId = manager.project?.tables[0]?.id ?? '';
+    vi.spyOn(privateStore(manager), 'save').mockRejectedValueOnce(new Error('forced derived save failure'));
+
+    const steps = [{ id: 'large', label: 'Amount > 20', type: 'filter' as const, column: 'amount', operator: 'gt' as const, value: 20 }];
+    await expect(manager.createDerivedTable(sourceId, 'Large sales', steps)).rejects.toThrow('forced derived save failure');
+    expect(manager.project?.tables).toHaveLength(1);
+    expect(await physicalTableCount(manager, 'large_sales')).toBe(0);
+
+    await manager.createDerivedTable(sourceId, 'Large sales', steps);
+    expect(manager.project?.tables).toHaveLength(2);
+    expect(await physicalTableCount(manager, 'large_sales')).toBe(1);
+  });
 });
+
+function privateStore(manager: ProjectManager): ProjectStore {
+  return (manager as unknown as { store: ProjectStore }).store;
+}
+
+async function physicalTableCount(manager: ProjectManager, tableName: string): Promise<number> {
+  const result = await manager.engine.queryInternal(
+    'SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+    ['main', tableName],
+    1
+  );
+  return Number(result.rows[0]?.count ?? 0);
+}

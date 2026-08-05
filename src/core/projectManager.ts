@@ -25,7 +25,7 @@ import { ModelService } from './modelService.js';
 import { PowerBiExportService, type PowerBiExportResult } from './powerBiExportService.js';
 import { ProjectStore, type OpenedProject } from './projectStore.js';
 import { ReportService } from './reportService.js';
-import { assertReadOnlyQuery } from './sql.js';
+import { assertReadOnlyQuery, quoteIdentifier } from './sql.js';
 import { TransformationService } from './transformationService.js';
 
 export type ProjectChangeListener = (manager: ProjectManager) => void;
@@ -116,11 +116,18 @@ export class ProjectManager {
       projectDirectory: opened.projectDirectory,
       ...(targetName ? { targetName } : {})
     });
-    await this.commit((project) => ({
-      ...project,
-      sources: [...project.sources, result.source],
-      tables: [...project.tables, ...result.tables]
-    }));
+    try {
+      await this.commit((project) => ({
+        ...project,
+        sources: [...project.sources, result.source],
+        tables: [...project.tables, ...result.tables]
+      }));
+    } catch (error) {
+      await this.dropPhysicalTables(result.tables
+        .filter((table) => !this.project?.tables.some((current) => current.id === table.id))
+        .map((table) => table.physicalName));
+      throw error;
+    }
   }
 
   async previewTable(tableId: string, limit: number): Promise<QueryResult> {
@@ -155,7 +162,14 @@ export class ProjectManager {
   async createDerivedTable(sourceTableId: string, targetName: string, steps: readonly TransformationStep[]): Promise<void> {
     const project = this.requireProject();
     const table = await this.transformations.createDerivedTable(project, sourceTableId, targetName, steps);
-    await this.commit((current) => ({ ...current, tables: [...current.tables, table] }));
+    try {
+      await this.commit((current) => ({ ...current, tables: [...current.tables, table] }));
+    } catch (error) {
+      if (!this.project?.tables.some((current) => current.id === table.id)) {
+        await this.dropPhysicalTables([table.physicalName]);
+      }
+      throw error;
+    }
   }
 
   async updateTablePresentation(tableId: string, presentation: TablePresentation): Promise<void> {
@@ -504,12 +518,25 @@ export class ProjectManager {
   private async commit(update: (project: BiProject) => BiProject, persist = true): Promise<void> {
     const opened = this.requireOpened();
     const candidate = ProjectSchema.parse(update(structuredClone(opened.project)));
+    if (persist && this.autoSaveState) {
+      const saved = await this.store.save(opened.projectFile, this.withoutTemporaryFilters(candidate));
+      opened.project = { ...candidate, updatedAt: saved.updatedAt };
+      this.dirtyState = false;
+      this.emit();
+      return;
+    }
     opened.project = candidate;
     this.dirtyState = persist || this.dirtyState;
-    if (persist && this.autoSaveState) {
-      await this.save();
-    } else {
-      this.emit();
+    this.emit();
+  }
+
+  private async dropPhysicalTables(tableNames: readonly string[]): Promise<void> {
+    for (const tableName of tableNames) {
+      try {
+        await this.engine.runInternal(`DROP TABLE IF EXISTS ${quoteIdentifier(tableName)}`);
+      } catch {
+        // Preserve the metadata-save error; cleanup is deliberately best effort.
+      }
     }
   }
 
