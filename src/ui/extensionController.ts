@@ -9,6 +9,7 @@ import type { HostMessage, WebviewRequest } from '../shared/messages.js';
 import type { QueryResult } from '../shared/project.js';
 import { initialWorkbenchState, type WorkbenchSection } from '../shared/state.js';
 import { WorkbenchPanel } from './workbenchPanel.js';
+import { promptPowerBiExport } from './powerBiExportUi.js';
 
 interface OpenFocus {
   section?: WorkbenchSection;
@@ -22,16 +23,19 @@ export class ExtensionController implements vscode.Disposable {
   private state = initialWorkbenchState();
   private readonly disposables: vscode.Disposable[] = [];
   private lastQueryResult?: QueryResult;
+  private closing?: Promise<void>;
+  private disposed = false;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     const output = vscode.window.createOutputChannel('BI Workbench');
     this.logger = new Logger(output);
     this.panel = new WorkbenchPanel(context.extensionUri);
     this.panel.setRequestHandler(async (request) => this.handleRequest(request));
+    this.panel.setErrorHandler((error) => this.logger.error('Workbench request', error));
     this.disposables.push(output, this.panel);
     const unsubscribe = this.manager.onDidChange(() => {
       this.syncProjectState();
-      void this.postState();
+      this.runInBackground('Refresh workbench state', this.postState());
     });
     this.disposables.push({ dispose: unsubscribe });
     this.refreshSettings();
@@ -50,6 +54,7 @@ export class ExtensionController implements vscode.Disposable {
       vscode.commands.registerCommand('biWorkbench.importData', async () => this.importData()),
       vscode.commands.registerCommand('biWorkbench.saveProject', async () => this.saveProject()),
       vscode.commands.registerCommand('biWorkbench.exportReport', async () => this.exportCurrentReport()),
+      vscode.commands.registerCommand('biWorkbench.exportPowerBiProject', async () => this.exportPowerBiProject()),
       vscode.commands.registerCommand('biWorkbench.showLogs', () => this.logger.show()),
       vscode.commands.registerCommand('biWorkbench.openHelp', async () => this.openHelp())
     ];
@@ -59,7 +64,7 @@ export class ExtensionController implements vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('biWorkbench')) {
         this.refreshSettings();
-        void this.postState();
+        this.runInBackground('Refresh workbench settings', this.postState());
       }
     });
   }
@@ -70,17 +75,22 @@ export class ExtensionController implements vscode.Disposable {
       this.state.activeSection = focus.section;
       this.applyNodeFocus(focus.nodeId);
     }
+    if (this.state.activeSection === 'reports') {
+      await this.reloadSelectedPage();
+    }
     await this.postState();
   }
 
   async createProject(): Promise<void> {
     const name = await vscode.window.showInputBox({
-      title: 'Create BI Project',
+      title: 'BI Workbench: Create New Project',
       prompt: 'Project name',
       value: 'My BI Project',
       validateInput: (value) => value.trim() ? undefined : 'Enter a project name.'
     });
     if (!name) {
+      this.logger.info('Create project cancelled before a project name was provided.');
+      await vscode.window.showInformationMessage('BI Workbench: project creation cancelled. No project name was provided.');
       return;
     }
     const parentSelection = await vscode.window.showOpenDialog({
@@ -91,6 +101,8 @@ export class ExtensionController implements vscode.Disposable {
       defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri
     });
     if (!parentSelection?.[0]) {
+      this.logger.info('Create project cancelled before a parent folder was selected.');
+      await vscode.window.showInformationMessage('BI Workbench: project creation cancelled. No parent folder was selected.');
       return;
     }
     const folderName = normalizePhysicalName(name, 'bi-project').replaceAll('_', '-');
@@ -123,6 +135,15 @@ export class ExtensionController implements vscode.Disposable {
     await this.execute('Open project', async () => {
       await this.manager.open(selected);
       await this.addRecent(this.manager.projectFile);
+      if (this.manager.migratedFrom !== undefined) {
+        const backup = this.manager.migrationBackupFile ?? 'an adjacent backup file';
+        this.logger.info(`Migrated project schema v${this.manager.migratedFrom} to v2. Backup: ${backup}`);
+        await this.panel.post({
+          type: 'toast',
+          level: 'info',
+          message: `Project upgraded to schema v2. The v${this.manager.migratedFrom} file was backed up before migration.`
+        });
+      }
       this.state.activeSection = 'home';
       this.state.preview = undefined;
       this.state.profiles = undefined;
@@ -141,12 +162,13 @@ export class ExtensionController implements vscode.Disposable {
       canSelectFolders: false,
       canSelectMany: true,
       filters: {
-        'Supported data': ['csv', 'tsv', 'json', 'jsonl', 'ndjson', 'parquet', 'xlsx', 'duckdb', 'db'],
+        'Supported data': ['csv', 'tsv', 'json', 'jsonl', 'ndjson', 'parquet', 'xlsx', 'duckdb', 'sqlite', 'sqlite3', 'db'],
         CSV: ['csv', 'tsv'],
         JSON: ['json', 'jsonl', 'ndjson'],
         Excel: ['xlsx'],
         Parquet: ['parquet'],
-        DuckDB: ['duckdb', 'db']
+        DuckDB: ['duckdb'],
+        'SQLite or DuckDB database': ['sqlite', 'sqlite3', 'db']
       },
       defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri
     });
@@ -182,11 +204,45 @@ export class ExtensionController implements vscode.Disposable {
     await this.exportReport(report.id, pageId);
   }
 
+  async exportPowerBiProject(): Promise<void> {
+    this.requireProject();
+    try {
+      const prompted = await promptPowerBiExport(this.manager, { confirmWrite: true });
+      if (prompted.cancelled) return;
+      const { result } = prompted;
+      this.logger.info(`Power BI project exported: ${result.counts.tables} tables, ${result.counts.measures} measures, ${result.counts.visuals} visuals, ${result.warnings.length} warnings.`);
+      for (const warning of result.warnings) this.logger.info(`Power BI export warning: ${warning}`);
+      const action = await vscode.window.showInformationMessage(
+        `Power BI project exported to ${path.basename(result.targetDirectory)} (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'}).`,
+        'Open in Power BI',
+        'Show in Folder',
+        ...(result.warnings.length > 0 ? ['Show Warnings'] : [])
+      );
+      if (action === 'Open in Power BI') {
+        await vscode.env.openExternal(vscode.Uri.file(result.pbipFile));
+      } else if (action === 'Show in Folder') {
+        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.pbipFile));
+      } else if (action === 'Show Warnings') {
+        this.logger.show();
+      }
+    } catch (error) {
+      this.logger.error('Export Power BI project', error);
+      await vscode.window.showErrorMessage(`Power BI export failed: ${this.errorMessage(error)}`);
+    }
+  }
+
   dispose(): void {
-    void this.manager.close();
+    if (this.disposed) return;
+    this.disposed = true;
+    this.closing = this.manager.close();
     for (const disposable of this.disposables.splice(0)) {
       disposable.dispose();
     }
+  }
+
+  async shutdown(): Promise<void> {
+    this.dispose();
+    await this.closing;
   }
 
   private async handleRequest(request: WebviewRequest): Promise<void> {
@@ -196,6 +252,9 @@ export class ExtensionController implements vscode.Disposable {
         return;
       case 'navigate':
         this.state.activeSection = request.section;
+        if (request.section === 'reports') {
+          await this.reloadSelectedPage();
+        }
         await this.postState();
         return;
       case 'createProject':
@@ -230,6 +289,10 @@ export class ExtensionController implements vscode.Disposable {
           this.state.queryResult = this.lastQueryResult;
         });
         return;
+      case 'cancelQuery':
+        this.manager.engine.interrupt();
+        await this.panel.post({ type: 'toast', level: 'warning', message: 'Query cancellation requested.' });
+        return;
       case 'saveQuery':
         await this.execute('Save query', async () => {
           this.state.querySql = request.sql;
@@ -252,6 +315,17 @@ export class ExtensionController implements vscode.Disposable {
       case 'deleteRelationship':
         await this.execute('Delete relationship', async () => this.manager.deleteRelationship(request.relationshipId), 'Relationship deleted');
         return;
+      case 'updateTablePresentation':
+        await this.execute('Update table presentation', async () => {
+          await this.manager.updateTablePresentation(request.tableId, request.presentation);
+        }, 'Table configuration saved');
+        return;
+      case 'updateTheme':
+        await this.execute('Update report theme', async () => {
+          await this.manager.updateTheme(request.theme);
+          await this.reloadSelectedPage();
+        }, 'Report theme saved');
+        return;
       case 'upsertMeasure':
         await this.execute('Save measure', async () => {
           const preview = await this.manager.upsertMeasure(request.measure);
@@ -266,6 +340,7 @@ export class ExtensionController implements vscode.Disposable {
           this.state.selectedReportId = await this.manager.addReport(request.name);
           this.state.selectedPageId = this.manager.project?.reports.find((report) => report.id === this.state.selectedReportId)?.pages[0]?.id;
           this.state.activeSection = 'reports';
+          await this.reloadSelectedPage();
         });
         return;
       case 'addPage':
@@ -289,6 +364,16 @@ export class ExtensionController implements vscode.Disposable {
           await this.reloadSelectedPage();
         });
         return;
+      case 'renameReport':
+        await this.execute('Update report', async () => {
+          await this.manager.renameReport(request.reportId, request.name, request.description);
+        }, 'Report settings saved');
+        return;
+      case 'renamePage':
+        await this.execute('Update report page', async () => {
+          await this.manager.renamePage(request.reportId, request.pageId, request.name, request.description);
+        }, 'Page settings saved');
+        return;
       case 'upsertVisual':
         await this.execute('Save visual', async () => {
           await this.manager.upsertVisual(request.reportId, request.pageId, request.visual);
@@ -302,6 +387,18 @@ export class ExtensionController implements vscode.Disposable {
           await this.manager.deleteVisual(request.reportId, request.pageId, request.visualId);
           await this.reloadSelectedPage();
         }, 'Visual deleted');
+        return;
+      case 'duplicateVisual':
+        await this.execute('Duplicate visual', async () => {
+          await this.manager.duplicateVisual(request.reportId, request.pageId, request.visualId);
+          await this.reloadSelectedPage();
+        }, 'Visual duplicated');
+        return;
+      case 'reorderVisual':
+        await this.execute('Reorder visual', async () => {
+          await this.manager.reorderVisual(request.reportId, request.pageId, request.visualId, request.toIndex);
+          await this.reloadSelectedPage();
+        });
         return;
       case 'upsertFilter':
         await this.execute('Save filter', async () => {
@@ -343,8 +440,17 @@ export class ExtensionController implements vscode.Disposable {
       case 'exportReport':
         await this.exportReport(request.reportId, request.pageId);
         return;
+      case 'exportPowerBiProject':
+        await this.exportPowerBiProject();
+        return;
+      case 'exportVisual':
+        await this.exportVisual(request.reportId, request.pageId, request.visualId, request.format);
+        return;
       case 'openSettings':
         await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:stephanesgl.vscode-bi-workbench');
+        return;
+      case 'openCopilot':
+        await vscode.commands.executeCommand('workbench.action.chat.open');
         return;
       case 'showLogs':
         this.logger.show();
@@ -400,11 +506,7 @@ export class ExtensionController implements vscode.Disposable {
 
   private async exportReport(reportId: string, pageId: string): Promise<void> {
     const project = this.requireProject();
-    const report = project.reports.find((candidate) => candidate.id === reportId);
-    const page = report?.pages.find((candidate) => candidate.id === pageId);
-    if (!page) {
-      throw new Error('Report page not found.');
-    }
+    const page = this.manager.requirePage(reportId, pageId);
     const projectDirectory = this.manager.projectDirectory;
     if (!projectDirectory) {
       throw new Error('The project directory is unavailable.');
@@ -422,6 +524,35 @@ export class ExtensionController implements vscode.Disposable {
     await this.execute('Export report', async () => {
       const data = await this.manager.loadPage(reportId, pageId);
       await writeFile(uri.fsPath, createStandaloneReportHtml(page, data, project.name), 'utf8');
+    }, `Exported ${path.basename(uri.fsPath)}`);
+  }
+
+  private async exportVisual(reportId: string, pageId: string, visualId: string, format: 'csv' | 'json'): Promise<void> {
+    const project = this.requireProject();
+    const report = project.reports.find((candidate) => candidate.id === reportId);
+    const page = report?.pages.find((candidate) => candidate.id === pageId);
+    const visual = page?.visuals.find((candidate) => candidate.id === visualId);
+    if (!page || !visual) {
+      throw new Error('Visual not found.');
+    }
+    const data = (await this.manager.loadPage(reportId, pageId)).find((candidate) => candidate.visualId === visualId);
+    if (!data || data.error) {
+      throw new Error(data?.error ?? 'Visual data is unavailable.');
+    }
+    const columnNames = data.columns.map((column) => column.name).filter((name) => name !== '__sort');
+    const rows = data.rows.map((row) => Object.fromEntries(columnNames.map((name) => [name, row[name]])));
+    const extension = format === 'csv' ? 'csv' : 'json';
+    const projectDirectory = this.manager.projectDirectory;
+    const uri = await vscode.window.showSaveDialog({
+      title: `Export ${visual.title} as ${format.toUpperCase()}`,
+      filters: format === 'csv' ? { CSV: ['csv'] } : { JSON: ['json'] },
+      defaultUri: projectDirectory ? vscode.Uri.file(path.join(projectDirectory, `${normalizePhysicalName(visual.title)}.${extension}`)) : undefined,
+      saveLabel: 'Export'
+    });
+    if (!uri) return;
+    await this.execute('Export visual data', async () => {
+      const content = format === 'csv' ? serializeCsv(rows, columnNames) : serializeJson(rows);
+      await writeFile(uri.fsPath, content, 'utf8');
     }, `Exported ${path.basename(uri.fsPath)}`);
   }
 
@@ -540,6 +671,12 @@ export class ExtensionController implements vscode.Disposable {
       return error.message.replaceAll(this.manager.projectDirectory ?? '\0', '<project>');
     }
     return String(error);
+  }
+
+  private runInBackground(operation: string, promise: Promise<unknown>): void {
+    void promise.catch((error: unknown) => {
+      this.logger.error(operation, error);
+    });
   }
 }
 

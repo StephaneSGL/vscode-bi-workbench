@@ -25,5 +25,5 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: vscode-bi-workbench-windows-x64
-          path: artifacts/vscode-bi-workbench-0.1.0.vsix
+          path: artifacts/vscode-bi-workbench-0.3.0.vsix
           if-no-files-found: error

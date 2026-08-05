@@ -1,6 +1,6 @@
 # Existing solutions and technical positioning
 
-Research date: 2026-08-01.
+Research updated: 2026-08-02.
 
 BI Workbench is an independent, local-first VS Code extension. It is not a Microsoft product and does not reuse Microsoft Power BI code, assets, or branding.
 
@@ -20,11 +20,15 @@ BI Workbench is an independent, local-first VS Code extension. It is not a Micro
 | Component | Selection | Reason | License |
 | --- | --- | --- | --- |
 | Analytical database | [DuckDB Node API](https://www.npmjs.com/package/@duckdb/node-api) | Embedded OLAP SQL engine; no separate server; persistent single-file database; native Promise API; Windows, Linux, and macOS binaries. | MIT |
+| Portable SQLite reader | [`sql.js`](https://github.com/sql-js/sql.js/) | Bundles SQLite compiled to WebAssembly, opens source bytes read-only in the extension workflow, and avoids depending on a runtime extension download. | MIT |
 | File ingestion | [DuckDB CSV/JSON readers](https://duckdb.org/docs/current/data/overview) and [XLSX reader](https://duckdb.org/docs/current/guides/file_formats/excel_import) | Type inference and bulk ingestion without a Python service. XLSX is supported; legacy XLS is not. | MIT (DuckDB) |
 | Visualizations | [Apache ECharts](https://echarts.apache.org/en/) | Mature Canvas/SVG rendering, interaction events, accessibility options, and more than twenty chart families. | Apache-2.0 |
 | Extension UI | VS Code webview + theme variables | Full control over a report canvas while matching the host theme and keeping data local. | VS Code API terms; project code MIT |
 | AI integration | [VS Code Chat Participant API](https://code.visualstudio.com/api/extension-guides/ai/chat) and [Language Model Tool API](https://code.visualstudio.com/api/extension-guides/ai/tools) | Official extension points for an `@bi` expert and explicit schema/query tools usable by GitHub Copilot. | VS Code API terms |
+| Power BI report validation | [`@microsoft/powerbi-report-authoring-cli`](https://www.npmjs.com/package/@microsoft/powerbi-report-authoring-cli) | Official public-preview catalog and PBIR conformance validator; pinned and used only in development/tests. | MIT |
 | Validation | Zod | Runtime validation for project metadata and webview messages; future schema versions can add explicit migrations. | MIT |
+
+The v0.3 release fixture is validated at two distinct boundaries: the Microsoft PBIR catalog/schema validator reports zero errors, and Power BI Desktop `2.156.951.0` on Windows x64 opens the PBIP, accepts the generated relationship update and refreshes the local CSV partitions. This is evidence for the implemented subset, not a promise of compatibility with all future Desktop schemas.
 
 ## Capabilities comparable to general BI software
 
@@ -32,19 +36,20 @@ The goal is functional similarity at the workflow level, not binary or visual co
 
 ### Technically reasonable to implement independently
 
-- Import CSV, JSON, XLSX, DuckDB, and selected databases through documented connectors.
+- Import CSV, JSON, XLSX, DuckDB, SQLite, and selected future databases through documented connectors.
 - Local SQL query editor, result preview, profiling, and repeatable transformation steps.
 - Tables, typed columns, relationships, and original SQL-based measures.
 - Report pages, interactive charts, tables, KPI cards, filters, slicers, and cross-filtering.
 - Project persistence in a documented JSON format plus a DuckDB data file.
 - CSV, JSON, and self-contained HTML report export.
+- Documented PBIP/PBIR/TMDL export with generated local M partitions and a deliberately small SQL-to-DAX translation set.
 - Source control, deterministic project files, schema validation, and explicit versioning.
 - Copilot assistance through documented VS Code APIs, with explicit privacy controls.
 
 ### Possible later, with important constraints
 
-- PostgreSQL, MySQL, SQLite, ODBC, and cloud warehouses: each connector needs credential storage, cancellation, TLS, and driver-specific tests.
-- PBIP/PBIR/TMDL interoperability: only documented schemas should be used. Microsoft documents PBIR as externally editable, but BI Workbench v0.1 does not claim Power BI compatibility.
+- PostgreSQL, MySQL, ODBC, and cloud warehouses: each connector needs credential storage, cancellation, TLS, and driver-specific tests.
+- Broader PBIP/PBIR/TMDL interoperability: v0.3 implements a validated subset, but future Microsoft schema changes, advanced visuals, filters, themes and refresh definitions still require versioned adapters.
 - Power BI REST/Fabric integration: requires Microsoft identity, tenant permissions, API throttling handling, and the user's applicable Microsoft licensing. The [Power BI REST API documentation](https://learn.microsoft.com/en-us/rest/api/power-bi/) describes those permissions and service boundaries.
 - Row-level security, incremental refresh, scheduled refresh, and shared deployments: these require a security model and usually a server/runtime.
 
@@ -52,7 +57,7 @@ The goal is functional similarity at the workflow level, not binary or visual co
 
 - Copying Power BI source code, visual design, icons, product name, or proprietary behavior.
 - Reading or writing the undocumented internals of PBIX files.
-- Claiming DAX or Power Query M compatibility. BI Workbench uses DuckDB SQL and its own project schema.
+- Claiming general DAX or Power Query compatibility. BI Workbench uses DuckDB SQL locally and only generates a constrained, audited DAX/M subset during Power BI export.
 - Bundling Microsoft credentials, tenant data, proprietary visuals, or paid Microsoft services.
 
 ## Legal and naming guardrails
@@ -60,8 +65,12 @@ The goal is functional similarity at the workflow level, not binary or visual co
 - The product name is **BI Workbench**, not “Power BI for VS Code”. “Power BI” appears only in factual comparison and interoperability documentation.
 - No Microsoft or Power BI logo, color lockup, screenshot, copied layout, or source is included.
 - Dependencies are permissively licensed; their notices are recorded in `THIRD_PARTY_NOTICES.md`.
-- The project format and implementation are original. Public PBIR/TMDL support, if added, will be isolated as an optional adapter based only on Microsoft-published schemas and documentation.
+- The project format and implementation are original. PBIR/TMDL support is isolated in one adapter based only on Microsoft-published schemas and documentation.
 - This is an engineering risk assessment, not legal advice. A trademark/licensing review is still appropriate before commercial distribution.
+
+## SQLite implementation decision
+
+DuckDB documents a SQLite extension, but extension autoload can require a network download in a fresh installation. BI Workbench v0.2 instead bundles permissively licensed `sql.js` and copies user tables into DuckDB transactionally. This makes offline behavior testable and leaves the source untouched. The tradeoff is explicit: `sql.js` loads the database into memory, so the connector rejects sources above 512 MiB and recommends Parquet or DuckDB for larger inputs.
 
 ## Conclusion
 

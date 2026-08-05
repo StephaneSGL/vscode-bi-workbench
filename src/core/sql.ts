@@ -29,11 +29,16 @@ const BLOCKED_STATEMENTS = [
 ] as const;
 
 const BLOCKED_FUNCTIONS = [
+  'current_setting',
   'delta_scan',
+  'getenv',
   'glob',
   'http_get',
   'iceberg_scan',
+  'mysql_query',
   'mysql_scan',
+  'parquet_scan',
+  'postgres_query',
   'postgres_scan',
   'query',
   'query_table',
@@ -42,12 +47,58 @@ const BLOCKED_FUNCTIONS = [
   'read_csv_auto',
   'read_json',
   'read_json_auto',
+  'read_json_objects',
+  'read_json_objects_auto',
   'read_ndjson',
+  'read_ndjson_auto',
+  'read_ndjson_objects',
+  'read_ndjson_objects_auto',
   'read_parquet',
   'read_text',
   'read_xlsx',
+  'sniff_csv',
+  'sqlite_attach',
+  'sqlite_query',
   'sqlite_scan'
 ] as const;
+
+const BLOCKED_FUNCTION_PATTERNS = [
+  /\bduckdb_[A-Za-z0-9_]*\s*\(/i,
+  /\bhttp_[A-Za-z0-9_]*\s*\(/i,
+  /\bpragma_[A-Za-z0-9_]*\s*\(/i,
+  /\bread_[A-Za-z0-9_]*\s*\(/i,
+  /\breadfile\s*\(/i,
+  /\b[A-Za-z_][A-Za-z0-9_]*_scan\s*\(/i,
+  /\b[A-Za-z_][A-Za-z0-9_]*_attach\s*\(/i,
+  /\b[A-Za-z_][A-Za-z0-9_]*secret[A-Za-z0-9_]*\s*\(/i,
+  /\bst_read(?:osm)?\s*\(/i
+] as const;
+
+const COPILOT_AGGREGATE_FUNCTIONS = new Set([
+  'approx_count_distinct',
+  'approx_quantile',
+  'avg',
+  'count',
+  'max',
+  'median',
+  'min',
+  'quantile',
+  'stddev',
+  'stddev_pop',
+  'stddev_samp',
+  'sum',
+  'var_pop',
+  'var_samp',
+  'variance'
+]);
+
+const COPILOT_AGGREGATE_SCALAR_FUNCTIONS = new Set([
+  'cast',
+  'date_part',
+  'date_trunc',
+  'round',
+  'try_cast'
+]);
 
 export interface CompiledPredicate {
   sql: string;
@@ -98,7 +149,7 @@ export function uniquePhysicalName(label: string, existing: Iterable<string>): s
   return `${base}_${suffix}`;
 }
 
-function maskStringsAndComments(sql: string): { masked: string; semicolons: number[] } {
+function maskStringsAndComments(sql: string, preserveQuotedIdentifiers = false): { masked: string; semicolons: number[] } {
   let masked = '';
   const semicolons: number[] = [];
   let index = 0;
@@ -127,13 +178,13 @@ function maskStringsAndComments(sql: string): { masked: string; semicolons: numb
     }
 
     if (current === '"') {
-      masked += ' ';
+      masked += preserveQuotedIdentifiers ? current : ' ';
       index += 1;
       while (index < sql.length) {
         const char = sql[index] ?? '';
-        masked += char === '\n' ? '\n' : ' ';
+        masked += preserveQuotedIdentifiers ? char : char === '\n' ? '\n' : ' ';
         if (char === '"' && sql[index + 1] === '"') {
-          masked += ' ';
+          masked += preserveQuotedIdentifiers ? '"' : ' ';
           index += 2;
           continue;
         }
@@ -239,11 +290,86 @@ export function assertReadOnlyQuery(sql: string): string {
     }
   }
 
+  if (BLOCKED_FUNCTION_PATTERNS.some((pattern) => pattern.test(masked))) {
+    throw new Error('External reader, scanner, attachment, network, secret, engine-metadata, or geospatial file functions are not allowed in ad-hoc queries.');
+  }
+  if (containsQuotedFunctionCall(trimmed)) {
+    throw new Error('Quoted function names are not allowed in ad-hoc queries.');
+  }
+
   if (/\bfrom\s*'/i.test(trimmed) || /\bjoin\s*'/i.test(trimmed)) {
     throw new Error('Direct file paths are not allowed in ad-hoc queries. Use Import Data first.');
   }
 
   return withoutTerminal;
+}
+
+export function assertAggregateOnlyQuery(sql: string): string {
+  const safeSql = assertReadOnlyQuery(sql);
+  const { masked } = maskStringsAndComments(safeSql);
+  const normalized = masked.trim();
+  if (!/^select\b/i.test(normalized)) {
+    throw new Error('Aggregate sharing accepts one direct SELECT query; CTEs are disabled in this privacy mode.');
+  }
+  if ((normalized.match(/\bselect\b/gi) ?? []).length !== 1) {
+    throw new Error('Subqueries are disabled in aggregate sharing mode.');
+  }
+  if (/\b(over|join|union|intersect|except|qualify)\b/i.test(normalized)) {
+    throw new Error('Window queries, joins, and set operations are disabled in aggregate sharing mode.');
+  }
+
+  const fromIndex = findTopLevelKeyword(normalized, 'from');
+  const selectClause = normalized.slice('select'.length, fromIndex < 0 ? undefined : fromIndex);
+  if (hasTopLevelWildcard(selectClause)) {
+    throw new Error('Top-level wildcards are disabled in aggregate sharing mode.');
+  }
+
+  const functions = [...selectClause.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)]
+    .map((match) => (match[1] ?? '').toLowerCase());
+  if (!functions.some((name) => COPILOT_AGGREGATE_FUNCTIONS.has(name))) {
+    throw new Error('Aggregate sharing requires COUNT, SUM, AVG, MIN, MAX, MEDIAN, QUANTILE, STDDEV, VARIANCE, or APPROX_COUNT_DISTINCT.');
+  }
+  const unsupportedFunction = functions.find((name) =>
+    !COPILOT_AGGREGATE_FUNCTIONS.has(name) && !COPILOT_AGGREGATE_SCALAR_FUNCTIONS.has(name)
+  );
+  if (unsupportedFunction) {
+    throw new Error(`The function ${unsupportedFunction} is not allowed in the aggregate SELECT list.`);
+  }
+  return safeSql;
+}
+
+function findTopLevelKeyword(sql: string, keyword: string): number {
+  let depth = 0;
+  for (let index = 0; index < sql.length; index += 1) {
+    const character = sql[index];
+    if (character === '(') {
+      depth += 1;
+      continue;
+    }
+    if (character === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    const previous = index === 0 ? '' : (sql[index - 1] ?? '');
+    if (depth === 0 && !/[A-Za-z0-9_]/.test(previous) && sql.slice(index).match(new RegExp(`^${keyword}\\b`, 'i'))) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function hasTopLevelWildcard(selectClause: string): boolean {
+  let depth = 0;
+  for (const character of selectClause) {
+    if (character === '(') {
+      depth += 1;
+    } else if (character === ')') {
+      depth = Math.max(0, depth - 1);
+    } else if (character === '*' && depth === 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function assertSafeMeasureExpression(expression: string): string {
@@ -263,7 +389,18 @@ export function assertSafeMeasureExpression(expression: string): string {
       throw new Error(`The function ${functionName} is not allowed in measures.`);
     }
   }
+  if (BLOCKED_FUNCTION_PATTERNS.some((pattern) => pattern.test(masked))) {
+    throw new Error('External reader, scanner, attachment, network, secret, or engine-metadata functions are not allowed in measures.');
+  }
+  if (containsQuotedFunctionCall(trimmed)) {
+    throw new Error('Quoted function names are not allowed in measures.');
+  }
   return trimmed;
+}
+
+function containsQuotedFunctionCall(sql: string): boolean {
+  const { masked } = maskStringsAndComments(sql, true);
+  return /"(?:[^"]|"")*"\s*\(/.test(masked);
 }
 
 export function toSqlParameter(value: unknown): SqlParameter {
@@ -285,7 +422,15 @@ export function compileFilterPredicate(
   value?: unknown,
   secondValue?: unknown
 ): CompiledPredicate {
-  const field = quoteIdentifier(column);
+  return compileFilterExpression(quoteIdentifier(column), operator, value, secondValue);
+}
+
+export function compileFilterExpression(
+  field: string,
+  operator: FilterOperator,
+  value?: unknown,
+  secondValue?: unknown
+): CompiledPredicate {
   switch (operator) {
     case 'eq':
       return value === null ? { sql: `${field} IS NULL`, values: [] } : { sql: `${field} = ?`, values: [toSqlParameter(value)] };
@@ -368,6 +513,33 @@ export function compileTransformationPipeline(sourceTable: string, steps: readon
       case 'sort':
         selectSql = `SELECT * FROM ${input} ORDER BY ${quoteIdentifier(step.column)} ${step.direction.toUpperCase()}`;
         break;
+      case 'replace':
+        if (step.mode === 'substring') {
+          selectSql = `SELECT * REPLACE (REPLACE(CAST(${quoteIdentifier(step.column)} AS VARCHAR), CAST(? AS VARCHAR), CAST(? AS VARCHAR)) AS ${quoteIdentifier(step.column)}) FROM ${input}`;
+        } else {
+          selectSql = `SELECT * REPLACE (CASE WHEN ${quoteIdentifier(step.column)} IS NOT DISTINCT FROM ? THEN ? ELSE ${quoteIdentifier(step.column)} END AS ${quoteIdentifier(step.column)}) FROM ${input}`;
+        }
+        values.push(toSqlParameter(step.find), toSqlParameter(step.replacement));
+        break;
+      case 'datePart': {
+        const datePart = step.part === 'dayOfWeek' ? 'dow' : step.part;
+        selectSql = `SELECT *, DATE_PART('${datePart}', TRY_CAST(${quoteIdentifier(step.column)} AS TIMESTAMP)) AS ${quoteIdentifier(step.newName)} FROM ${input}`;
+        break;
+      }
+      case 'group': {
+        const groups = step.groupBy.map(quoteIdentifier);
+        const aggregates = step.aggregations.map((aggregation) => {
+          const column = quoteIdentifier(aggregation.column);
+          const expression = aggregation.function === 'countDistinct'
+            ? `COUNT(DISTINCT ${column})`
+            : `${aggregation.function.toUpperCase()}(${column})`;
+          return `${expression} AS ${quoteIdentifier(aggregation.name)}`;
+        });
+        const selections = [...groups, ...aggregates].join(', ');
+        const groupBy = groups.length > 0 ? ` GROUP BY ${groups.join(', ')}` : '';
+        selectSql = `SELECT ${selections} FROM ${input}${groupBy}`;
+        break;
+      }
     }
 
     ctes.push(`${output} AS (${selectSql})`);

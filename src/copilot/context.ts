@@ -29,12 +29,12 @@ export async function buildCopilotContext(
       })),
       relationships: project.relationships,
       measures: project.measures,
-      savedQueries: project.queries.map((query) => ({ name: query.name, sql: query.sql })),
+      savedQueries: project.queries.map((query) => ({ id: query.id, name: query.name })),
       reports: project.reports.map((report) => ({
         name: report.name,
         pages: report.pages.map((page) => ({
           name: page.name,
-          filters: page.filters.filter((filter) => !filter.temporary),
+          filters: page.filters.filter((filter) => !filter.temporary).map(filterMetadata),
           visuals: page.visuals
         }))
       }))
@@ -99,7 +99,17 @@ export function schemaToolPayload(manager: ProjectManager): string {
     reports: project.reports.map((report) => ({
       id: report.id,
       name: report.name,
-      pages: report.pages.map((page) => ({ id: page.id, name: page.name, visuals: page.visuals, filters: page.filters }))
+      pages: report.pages.map((page) => ({ id: page.id, name: page.name, visuals: page.visuals, filters: page.filters.map(filterMetadata) }))
     }))
   }, null, 2);
+}
+
+function filterMetadata(filter: { id: string; tableId: string; column: string; operator: string; temporary?: boolean }): Record<string, unknown> {
+  return {
+    id: filter.id,
+    tableId: filter.tableId,
+    column: filter.column,
+    operator: filter.operator,
+    ...(filter.temporary ? { temporary: true } : {})
+  };
 }

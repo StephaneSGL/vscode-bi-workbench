@@ -15,7 +15,7 @@ const extensionConfig = {
   platform: 'node',
   format: 'cjs',
   target: 'node22',
-  external: ['vscode', '@duckdb/node-bindings', '@aws-sdk/client-s3']
+  external: ['vscode', '@duckdb/node-bindings', '@aws-sdk/client-s3', 'sql.js']
 };
 
 const webviewConfig = {

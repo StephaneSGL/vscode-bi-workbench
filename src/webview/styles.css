@@ -661,8 +661,33 @@ textarea:focus {
 .panel-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
   margin-top: 15px;
+}
+.panel-actions .muted {
+  margin-right: auto;
+}
+.panel-title-row,
+.row-actions,
+.builder-actions,
+.visual-actions,
+.visual-toggles {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.panel-title-row {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.panel-title-row h2 {
+  margin: 0;
+}
+.measure.selected,
+.relationship.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .step-list {
   display: flex;
@@ -723,6 +748,45 @@ textarea:focus {
   grid-template-columns: 1fr 1fr;
   gap: 0 9px;
 }
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+.model-editor {
+  margin-bottom: 14px;
+}
+.column-config {
+  overflow: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+}
+.column-config-head,
+.column-config-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(220px, 1.5fr) minmax(120px, .8fr) minmax(110px, .8fr) 80px;
+  gap: 8px;
+  align-items: center;
+  min-width: 800px;
+  padding: 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.column-config-head {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--vscode-sideBar-background);
+}
+.column-config-row:last-child {
+  border-bottom: 0;
+}
+.column-config-row > span,
+.column-config-row > label:not(.check) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.column-config-row small {
+  color: var(--vscode-descriptionForeground);
+}
 .model-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -754,6 +818,10 @@ textarea:focus {
   border-radius: 7px;
   background: var(--vscode-editorWidget-background);
   padding: 8px;
+}
+.report-settings {
+  margin-top: 8px;
+  padding: 10px;
 }
 .report-tabs,
 .page-tabs {
@@ -819,6 +887,8 @@ textarea:focus {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 10px;
   align-items: stretch;
+  padding: 10px;
+  border-radius: 8px;
 }
 .dashboard-empty {
   grid-column: 1/13;
@@ -830,6 +900,17 @@ textarea:focus {
   padding: 10px;
   min-width: 0;
   position: relative;
+  container-type: inline-size;
+}
+.visual-card[draggable="true"] {
+  cursor: default;
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--visual-foreground, var(--vscode-descriptionForeground));
+  opacity: .75;
+  letter-spacing: -2px;
+  margin-left: 0 !important;
 }
 .visual-card > header {
   display: flex;
@@ -838,14 +919,47 @@ textarea:focus {
   height: 28px;
 }
 .visual-card > header strong {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.visual-card > header span {
-  margin-left: auto;
-  color: var(--vscode-descriptionForeground);
+.visual-card > header > span:not(.drag-handle) {
+  color: var(--visual-foreground, var(--vscode-descriptionForeground));
+  opacity: .75;
   font-size: 10px;
+}
+.visual-actions {
+  margin-left: 2px;
+  flex: 0 0 auto;
+}
+.visual-actions button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 12px;
+}
+@container (max-width: 360px) {
+  .visual-card > header {
+    height: auto;
+    flex-wrap: wrap;
+  }
+  .visual-actions {
+    flex-basis: 100%;
+    margin-left: 20px;
+  }
+  .chart-host {
+    height: calc(100% - 56px);
+  }
+}
+.visual-description {
+  margin: 0 0 4px;
+  color: var(--visual-foreground, var(--vscode-descriptionForeground));
+  opacity: .8;
+  font-size: 11px;
 }
 .chart-host {
   height: calc(100% - 28px);
@@ -855,8 +969,12 @@ textarea:focus {
   height: calc(100% - 35px);
   display: grid;
   place-items: center;
-  font-size: 42px;
+  max-width: 100%;
+  font-size: clamp(20px, 11cqw, 38px);
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .visual-error {
   margin: 15px;
@@ -912,6 +1030,47 @@ textarea:focus {
 }
 .visual-builder .field {
   margin: 0;
+}
+.column-picker {
+  grid-column: span 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 34px;
+  max-height: 120px;
+  overflow: auto;
+  border: 1px solid var(--vscode-panel-border);
+}
+.column-picker legend {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.check input {
+  width: auto;
+}
+.color-field > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.color-field input[type="checkbox"] {
+  width: auto;
+}
+.visual-toggles {
+  align-self: center;
+  flex-wrap: wrap;
+}
+.builder-actions {
+  justify-content: flex-end;
+}
+.theme-editor {
+  margin-top: 14px;
 }
 .settings-list {
   display: flex;
@@ -1109,5 +1268,459 @@ textarea:focus {
   }
   .form-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Studio shell: compact ribbon, Power BI-style work areas, original BI Workbench identity. */
+.workbench-shell {
+  grid-template: 42px 92px minmax(0, 1fr) / 68px minmax(0, 1fr);
+}
+.topbar {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  grid-template-columns: 230px 1fr auto;
+  min-height: 42px;
+  padding: 0 12px 0 0;
+  background: color-mix(in srgb, var(--vscode-titleBar-activeBackground) 92%, #0b1020);
+}
+.brand {
+  padding-left: 10px;
+  gap: 8px;
+}
+.brand-mark {
+  width: 27px;
+  height: 27px;
+  border-radius: 5px;
+  font-size: 15px;
+}
+.brand small {
+  font-size: 9px;
+}
+.top-actions button {
+  padding: 5px 10px;
+}
+.ribbon {
+  grid-column: 1 / 3;
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: 25px 1fr;
+  min-width: 0;
+  background: var(--vscode-editorWidget-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  overflow: hidden;
+}
+.ribbon-tabs {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+  padding-left: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.ribbon-tabs span {
+  height: 25px;
+  padding: 5px 12px 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+.ribbon-tabs span.active {
+  color: var(--vscode-foreground);
+  border-bottom: 2px solid var(--accent);
+  font-weight: 600;
+}
+.ribbon-commands {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 8px 3px 74px;
+  overflow-x: auto;
+}
+.ribbon-group {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: max-content;
+  padding: 0 8px 13px;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+.ribbon-group > button {
+  display: grid;
+  grid-template-rows: 25px 14px;
+  justify-items: center;
+  min-width: 57px;
+  height: 48px;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+}
+.ribbon-group > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, var(--vscode-editorWidget-background));
+}
+.ribbon-group > button b {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font: 700 16px/1 var(--vscode-font-family, Segoe UI, sans-serif);
+}
+.ribbon-group > button span {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.ribbon-group > small {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  font-size: 8px;
+}
+.copilot-group > button b {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  color: #fff;
+  font-size: 10px;
+}
+.sidebar {
+  grid-column: 1;
+  grid-row: 3;
+  width: 68px;
+}
+.sidebar nav {
+  gap: 1px;
+  padding: 6px 0;
+  overflow-y: auto;
+}
+.nav-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 0;
+  height: 48px;
+  padding: 5px 2px;
+  border-radius: 0;
+  text-align: center;
+}
+.nav-item .nav-icon {
+  width: auto;
+  font-size: 18px;
+  line-height: 20px;
+}
+.nav-item .nav-label {
+  width: auto;
+  max-width: 62px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 8px;
+  line-height: 11px;
+  white-space: nowrap;
+}
+.nav-item.active {
+  box-shadow: inset 3px 0 var(--accent);
+}
+.sidebar-footer {
+  display: none;
+}
+.content {
+  grid-column: 2;
+  grid-row: 3;
+  padding: 18px 22px 36px;
+}
+.reports-section {
+  max-width: none !important;
+}
+.reports-section > .section-heading {
+  margin-bottom: 12px;
+}
+.reports-section > .section-heading h1 {
+  font-size: 21px;
+}
+.reports-section > .section-heading .eyebrow {
+  display: none;
+}
+.report-toolbar {
+  padding: 4px 7px;
+  border-radius: 5px 5px 0 0;
+}
+.toolbar-label {
+  padding: 0 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.report-tabs {
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+}
+.report-tabs button.active {
+  box-shadow: inset 0 -2px var(--accent);
+}
+.report-studio {
+  display: grid;
+  grid-template-columns: minmax(560px, 1fr) 350px;
+  min-height: 560px;
+  height: calc(100vh - 250px);
+  border: 1px solid var(--vscode-panel-border);
+  border-top: 0;
+  background: var(--vscode-sideBar-background);
+  overflow: hidden;
+}
+.report-stage {
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr) 39px;
+  min-width: 0;
+  min-height: 0;
+}
+.canvas-titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--vscode-editorWidget-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.canvas-titlebar > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+.canvas-titlebar strong {
+  font-size: 12px;
+}
+.canvas-titlebar span {
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+}
+.canvas-filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: auto;
+}
+.report-canvas {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 75%, var(--vscode-descriptionForeground));
+}
+.report-canvas .dashboard-grid {
+  width: min(1280px, 100%);
+  min-width: 700px;
+  min-height: 650px;
+  margin: 0 auto;
+  padding: 14px;
+  align-content: start;
+  border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 75%, transparent);
+  border-radius: 2px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .14);
+}
+.report-canvas .visual-card {
+  border-radius: 5px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .09);
+}
+.report-canvas .visual-actions {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.report-canvas .visual-card:hover .visual-actions,
+.report-canvas .visual-card:focus-within .visual-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.report-stage > .page-tabs {
+  min-width: 0;
+  padding: 0 6px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editorWidget-background);
+}
+.report-stage > .page-tabs button {
+  height: 33px;
+  border-radius: 0;
+}
+.report-stage > .page-tabs button.active {
+  color: var(--vscode-foreground);
+  background: transparent;
+  box-shadow: inset 0 -3px var(--accent);
+}
+.report-stage > .page-tabs input {
+  margin-left: 4px;
+}
+.page-nav-mark {
+  padding: 0 5px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 18px;
+}
+.page-add {
+  min-width: 34px;
+  color: var(--vscode-button-foreground, #fff) !important;
+  background: var(--accent) !important;
+  font-size: 18px;
+}
+.report-inspector {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-left: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-sideBar-background);
+}
+.inspector-pane,
+.report-inspector .builder,
+.report-inspector .report-settings {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  border-radius: 0;
+  background: transparent;
+}
+.inspector-pane > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 39px;
+  padding: 8px 12px;
+  background: var(--vscode-editorWidget-background);
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+.inspector-pane > summary::-webkit-details-marker {
+  display: none;
+}
+.inspector-pane > summary b {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 10px;
+}
+.inspector-body {
+  padding: 10px 12px 12px;
+}
+.active-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+.report-inspector .filter-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.report-inspector .visual-builder {
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 0;
+  padding: 10px 12px 14px;
+}
+.report-inspector .visual-builder .builder-context,
+.report-inspector .visual-builder .column-picker,
+.report-inspector .visual-builder .builder-actions,
+.report-inspector .visual-builder .visual-toggles {
+  grid-column: 1 / -1;
+}
+.builder-context {
+  margin: 0 0 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+.report-inspector .visual-builder .field > span {
+  font-size: 9px;
+}
+.report-inspector .column-picker {
+  max-height: 92px;
+}
+.field-tree {
+  padding: 4px 8px 10px;
+}
+.field-tree > details {
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 55%, transparent);
+}
+.field-tree > details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.field-tree > details > summary small {
+  margin-left: auto;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 400;
+}
+.field-tree button {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  padding: 5px 7px 5px 17px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.field-tree button small {
+  color: var(--vscode-descriptionForeground);
+  font-size: 8px;
+}
+.report-inspector .report-settings .inspector-body {
+  display: grid;
+  gap: 7px;
+}
+
+@media (max-width: 1050px) {
+  .ribbon-commands {
+    padding-left: 8px;
+  }
+  .report-studio {
+    grid-template-columns: minmax(480px, 1fr) 310px;
+  }
+  .report-inspector .visual-builder {
+    grid-template-columns: 1fr;
+  }
+  .report-inspector .visual-builder > * {
+    grid-column: 1 !important;
+  }
+}
+@media (max-width: 780px) {
+  .topbar {
+    grid-template-columns: 170px 1fr;
+  }
+  .project-status {
+    display: none;
+  }
+  .ribbon-group > button {
+    min-width: 50px;
+  }
+  .content {
+    padding: 12px;
+  }
+  .report-studio {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .report-stage {
+    height: 640px;
+  }
+  .report-inspector {
+    max-height: 620px;
+    border-top: 1px solid var(--vscode-panel-border);
+    border-left: 0;
   }
 }

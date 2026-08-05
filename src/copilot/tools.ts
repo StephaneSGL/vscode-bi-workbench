@@ -1,10 +1,31 @@
 import * as vscode from 'vscode';
 import type { ProjectManager } from '../core/projectManager.js';
-import { assertReadOnlyQuery } from '../core/sql.js';
+import { assertAggregateOnlyQuery, assertReadOnlyQuery } from '../core/sql.js';
+import { VisualSchema } from '../shared/project.js';
+import { promptPowerBiExport } from '../ui/powerBiExportUi.js';
 import { schemaToolPayload, type DataSharingMode } from './context.js';
 
 interface QueryToolInput {
   sql: string;
+  purpose: string;
+}
+
+interface ConfigureVisualToolInput {
+  reportId: string;
+  pageId: string;
+  purpose: string;
+  visual: unknown;
+}
+
+interface CreateReportToolInput {
+  name: string;
+  description?: string;
+  pageName: string;
+  pageDescription?: string;
+  purpose: string;
+}
+
+interface ExportPowerBiToolInput {
   purpose: string;
 }
 
@@ -40,13 +61,9 @@ export function registerCopilotTools(context: vscode.ExtensionContext, manager: 
       if (token.isCancellationRequested) {
         return textResult({ error: 'Cancelled before query execution.' });
       }
-      const sql = assertReadOnlyQuery(options.input.sql);
-      if (mode === 'aggregates' && !looksAggregate(sql)) {
-        return textResult({
-          error: 'Aggregate sharing mode only allows queries containing an aggregate function and rejects SELECT *.',
-          action: 'Use COUNT, SUM, AVG, MIN, MAX, APPROX_COUNT_DISTINCT, or a grouped aggregate.'
-        });
-      }
+      const sql = mode === 'aggregates'
+        ? assertAggregateOnlyQuery(options.input.sql)
+        : assertReadOnlyQuery(options.input.sql);
       const configuration = vscode.workspace.getConfiguration('biWorkbench');
       const limit = mode === 'samples'
         ? Math.max(1, Math.min(100, configuration.get('maxCopilotSampleRows', 20)))
@@ -63,19 +80,120 @@ export function registerCopilotTools(context: vscode.ExtensionContext, manager: 
     }
   };
 
+  const configureVisualTool: vscode.LanguageModelTool<ConfigureVisualToolInput> = {
+    prepareInvocation: (options) => {
+      const parsed = VisualSchema.safeParse(options.input.visual);
+      const description = parsed.success
+        ? `Create or update **${escapeMarkdown(parsed.data.title)}** (${parsed.data.type}) after validating its real DuckDB query.`
+        : 'Validate and apply a visualization configuration to the active BI project.';
+      return {
+        invocationMessage: 'Validating and applying a BI visualization',
+        confirmationMessages: {
+          title: 'Apply this visual to the BI project?',
+          message: new vscode.MarkdownString(`${description}\n\nPurpose: **${escapeMarkdown(options.input.purpose)}**\n\nThis changes project metadata and may auto-save it. It never modifies imported source files.`)
+        }
+      };
+    },
+    invoke: async (options, token) => {
+      if (!manager.project) {
+        return textResult({ error: 'No BI project is open.' });
+      }
+      if (token.isCancellationRequested) {
+        return textResult({ error: 'Cancelled before project changes.' });
+      }
+      const visual = VisualSchema.parse(options.input.visual);
+      await manager.upsertVisual(options.input.reportId, options.input.pageId, visual);
+      return textResult({
+        applied: true,
+        reportId: options.input.reportId,
+        pageId: options.input.pageId,
+        visual,
+        validation: 'The visual query executed successfully before the project change was committed.'
+      });
+    }
+  };
+
+  const createReportTool: vscode.LanguageModelTool<CreateReportToolInput> = {
+    prepareInvocation: (options) => ({
+      invocationMessage: `Creating BI report ${options.input.name}`,
+      confirmationMessages: {
+        title: 'Create this BI report?',
+        message: new vscode.MarkdownString(`Create **${escapeMarkdown(options.input.name)}** with page **${escapeMarkdown(options.input.pageName)}**.\n\nPurpose: **${escapeMarkdown(options.input.purpose)}**\n\nThis changes project metadata and may auto-save it.`)
+      }
+    }),
+    invoke: async (options, token) => {
+      if (!manager.project) {
+        return textResult({ error: 'No BI project is open.' });
+      }
+      if (token.isCancellationRequested) {
+        return textResult({ error: 'Cancelled before project changes.' });
+      }
+      const reportId = await manager.addReport(
+        options.input.name,
+        options.input.description ?? '',
+        options.input.pageName,
+        options.input.pageDescription ?? ''
+      );
+      const report = manager.project?.reports.find((item) => item.id === reportId);
+      return textResult({
+        applied: true,
+        reportId,
+        pageId: report?.pages[0]?.id,
+        reportName: report?.name,
+        pageName: report?.pages[0]?.name,
+        next: 'Use #biConfigureVisual with these reportId and pageId values to add validated visuals.'
+      });
+    }
+  };
+
+  const exportPowerBiTool: vscode.LanguageModelTool<ExportPowerBiToolInput> = {
+    prepareInvocation: (options) => ({
+      invocationMessage: 'Building a Power BI Desktop Project',
+      confirmationMessages: {
+        title: 'Export the active project to Power BI?',
+        message: new vscode.MarkdownString(
+          `Purpose: **${escapeMarkdown(options.input.purpose)}**\n\nBI Workbench will ask you to select a local folder, copy all project table rows to CSV, and generate a documented \`.pbip\` project with PBIR reports and a TMDL semantic model. Exported files may contain sensitive data. No proprietary \`.pbix\` file is generated directly.`
+        )
+      }
+    }),
+    invoke: async (options, token) => {
+      if (!manager.project) {
+        return textResult({ error: 'No BI project is open.' });
+      }
+      if (token.isCancellationRequested) {
+        return textResult({ cancelled: true, reason: 'Cancelled before selecting an export folder.' });
+      }
+      try {
+        const prompted = await promptPowerBiExport(manager, { confirmWrite: false });
+        if (prompted.cancelled) {
+          return textResult({ cancelled: true, reason: 'The user did not select an export folder.' });
+        }
+        return textResult({
+          exported: true,
+          format: 'Power BI Desktop Project (PBIP with PBIR and TMDL)',
+          purpose: options.input.purpose,
+          counts: prompted.result.counts,
+          warnings: prompted.result.warnings,
+          location: 'The local folder selected by the user.',
+          next: 'Open the generated .pbip in Power BI Desktop. Power BI Desktop can then Save As a .pbix file.'
+        });
+      } catch (error) {
+        return textResult({ error: redactLocalPaths(error instanceof Error ? error.message : String(error)) });
+      }
+    }
+  };
+
   context.subscriptions.push(
     vscode.lm.registerTool('vscode-bi-workbench_getProjectSchema', schemaTool),
-    vscode.lm.registerTool('vscode-bi-workbench_queryProject', queryTool)
+    vscode.lm.registerTool('vscode-bi-workbench_queryProject', queryTool),
+    vscode.lm.registerTool('vscode-bi-workbench_configureVisual', configureVisualTool),
+    vscode.lm.registerTool('vscode-bi-workbench_createReport', createReportTool),
+    vscode.lm.registerTool('vscode-bi-workbench_exportPowerBiProject', exportPowerBiTool)
   );
 }
 
 function sharingMode(): DataSharingMode {
   return vscode.workspace.getConfiguration('biWorkbench').get<DataSharingMode>('copilotDataSharing', 'schema');
-}
-
-function looksAggregate(sql: string): boolean {
-  return !/\bselect\s+\*/i.test(sql)
-    && /\b(count|sum|avg|min|max|median|quantile|stddev|variance|approx_count_distinct)\s*\(/i.test(sql);
 }
 
 function textResult(value: unknown): vscode.LanguageModelToolResult {
@@ -86,4 +204,8 @@ function textResult(value: unknown): vscode.LanguageModelToolResult {
 
 function escapeMarkdown(value: string): string {
   return value.replace(/[\\`*_{}[\]()#+.!|>-]/g, '\\$&').slice(0, 500);
+}
+
+function redactLocalPaths(value: string): string {
+  return value.replace(/[A-Za-z]:[\\/][^\r\n]+/g, '<local path>').slice(0, 2000);
 }

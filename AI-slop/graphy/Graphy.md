@@ -4,28 +4,29 @@ This report is generated from the files tracked by Git. It provides an accessibl
 
 ## File structure summary
 
-- Tracked files: **66**
-- Folders: **19**
-- File types: **13**
-- Source commit: `5fa7f1eaaa1b`
+- Tracked files: **81**
+- Folders: **20**
+- File types: **14**
+- Source commit: `9c140c339f36`
 
 ## File types
 
 | Type | Files |
 |---|---:|
-| `.ts` | 34 |
-| `.md` | 10 |
+| `.ts` | 43 |
+| `.md` | 12 |
 | `.json` | 8 |
-| `.mjs` | 5 |
-| `.gitattributes` | 1 |
-| `.yml` | 1 |
-| `.gitignore` | 1 |
-| `.vscodeignore` | 1 |
-| `no extension` | 1 |
-| `.svg` | 1 |
+| `.mjs` | 6 |
+| `.png` | 2 |
+| `.svg` | 2 |
 | `.css` | 1 |
-| `.txt` | 1 |
+| `.gitattributes` | 1 |
+| `.gitignore` | 1 |
 | `.mts` | 1 |
+| `.txt` | 1 |
+| `.vscodeignore` | 1 |
+| `.yml` | 1 |
+| `no extension` | 1 |
 
 ## Directory tree
 
@@ -38,43 +39,53 @@ vscode-bi-workbench/
 │   ├── extensions.json
 │   ├── launch.json
 │   └── tasks.json
-├── docs/  (4 files)
+├── docs/  (7 files)
+│   ├── graphy/  (2 files)
+│   │   ├── Graphy.md
+│   │   └── overview.png
 │   ├── ARCHITECTURE.md
+│   ├── COMPLETION_AUDIT.md
 │   ├── RESEARCH.md
 │   ├── ROADMAP.md
 │   └── UI_SPEC.md
-├── media/  (1 files)
+├── media/  (3 files)
+│   ├── bi-workbench-logo.png
+│   ├── bi-workbench-logo.svg
 │   └── bi-workbench.svg
 ├── schemas/  (1 files)
 │   └── project.schema.json
-├── scripts/  (3 files)
+├── scripts/  (4 files)
 │   ├── clean.mjs
 │   ├── collectLicenses.mjs
-│   └── ensureArtifacts.mjs
-├── src/  (26 files)
+│   ├── ensureArtifacts.mjs
+│   └── writeChecksum.mjs
+├── src/  (29 files)
 │   ├── copilot/  (3 files)
 │   │   ├── context.ts
 │   │   ├── participant.ts
 │   │   └── tools.ts
-│   ├── core/  (10 files)
+│   ├── core/  (11 files)
 │   │   ├── duckdbEngine.ts
 │   │   ├── exportService.ts
 │   │   ├── importService.ts
 │   │   ├── logger.ts
 │   │   ├── modelService.ts
+│   │   ├── powerBiExportService.ts
 │   │   ├── projectManager.ts
 │   │   ├── projectStore.ts
 │   │   ├── reportService.ts
 │   │   ├── sql.ts
 │   │   └── transformationService.ts
-│   ├── shared/  (3 files)
+│   ├── shared/  (4 files)
 │   │   ├── messages.ts
+│   │   ├── presentation.ts
 │   │   ├── project.ts
 │   │   └── state.ts
 │   ├── test/  (1 files)
 │   │   └── runExtensionTests.ts
-│   ├── ui/  (3 files)
+│   ├── ui/  (4 files)
 │   │   ├── extensionController.ts
+│   │   ├── powerBiExportUi.ts
 │   │   ├── projectTrees.ts
 │   │   └── workbenchPanel.ts
 │   ├── webview/  (4 files)
@@ -84,18 +95,24 @@ vscode-bi-workbench/
 │   │   └── styles.css
 │   ├── extension.ts
 │   └── types.d.ts
-├── tests/  (9 files)
+├── tests/  (15 files)
 │   ├── extension/  (1 files)
 │   │   └── suite.ts
-│   ├── integration/  (3 files)
+│   ├── integration/  (6 files)
 │   │   ├── engine.test.ts
 │   │   ├── imports.test.ts
-│   │   └── projectManager.test.ts
-│   ├── ui/  (1 files)
+│   │   ├── powerBiExport.test.ts
+│   │   ├── projectManager.test.ts
+│   │   ├── projectStore.test.ts
+│   │   └── relationshipFilters.test.ts
+│   ├── ui/  (2 files)
+│   │   ├── main.test.ts
 │   │   └── render.test.ts
-│   └── unit/  (4 files)
+│   └── unit/  (6 files)
+│       ├── copilotContext.test.ts
 │       ├── export.test.ts
 │       ├── messages.test.ts
+│       ├── powerBiExport.test.ts
 │       ├── project.test.ts
 │       └── sql.test.ts
 ├── .gitattributes
