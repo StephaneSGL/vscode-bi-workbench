@@ -1,18 +1,23 @@
 import * as vscode from 'vscode';
-import type { HostMessage, WebviewRequest } from '../shared/messages.js';
-import { WebviewRequestSchema } from '../shared/messages.js';
+import type { HostMessage } from '../shared/messages.js';
+import { dispatchWorkbenchRequest, type WorkbenchRequestHandler } from './workbenchRequest.js';
 
-export type WorkbenchRequestHandler = (request: WebviewRequest) => Promise<void>;
+export type WorkbenchErrorHandler = (error: unknown) => void;
 
 export class WorkbenchPanel implements vscode.Disposable {
   private panel?: vscode.WebviewPanel;
   private handler?: WorkbenchRequestHandler;
+  private errorHandler?: WorkbenchErrorHandler;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
   setRequestHandler(handler: WorkbenchRequestHandler): void {
     this.handler = handler;
+  }
+
+  setErrorHandler(handler: WorkbenchErrorHandler): void {
+    this.errorHandler = handler;
   }
 
   show(): void {
@@ -33,13 +38,15 @@ export class WorkbenchPanel implements vscode.Disposable {
     this.panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'media', 'bi-workbench.svg');
     this.panel.webview.html = this.html(this.panel.webview);
     this.disposables.push(
-      this.panel.webview.onDidReceiveMessage(async (raw: unknown) => {
-        const parsed = WebviewRequestSchema.safeParse(raw);
-        if (!parsed.success) {
-          await this.post({ type: 'toast', level: 'error', message: 'The workbench sent an invalid request.' });
-          return;
-        }
-        await this.handler?.(parsed.data);
+      this.panel.webview.onDidReceiveMessage((raw: unknown) => {
+        void dispatchWorkbenchRequest(
+          raw,
+          this.handler,
+          async (message) => this.post(message),
+          (error) => this.reportError(error)
+        ).catch((error: unknown) => {
+          this.reportError(error);
+        });
       }),
       this.panel.onDidDispose(() => {
         this.panel = undefined;
@@ -56,6 +63,18 @@ export class WorkbenchPanel implements vscode.Disposable {
     for (const disposable of this.disposables.splice(0)) {
       disposable.dispose();
     }
+  }
+
+  private reportError(error: unknown): void {
+    if (this.errorHandler) {
+      try {
+        this.errorHandler(error);
+        return;
+      } catch (reportingError) {
+        console.error('BI Workbench error reporter failed.', reportingError);
+      }
+    }
+    console.error('BI Workbench webview request failed.', error);
   }
 
   private html(webview: vscode.Webview): string {

@@ -31,10 +31,11 @@ export class ExtensionController implements vscode.Disposable {
     this.logger = new Logger(output);
     this.panel = new WorkbenchPanel(context.extensionUri);
     this.panel.setRequestHandler(async (request) => this.handleRequest(request));
+    this.panel.setErrorHandler((error) => this.logger.error('Workbench request', error));
     this.disposables.push(output, this.panel);
     const unsubscribe = this.manager.onDidChange(() => {
       this.syncProjectState();
-      void this.postState();
+      this.runInBackground('Refresh workbench state', this.postState());
     });
     this.disposables.push({ dispose: unsubscribe });
     this.refreshSettings();
@@ -63,7 +64,7 @@ export class ExtensionController implements vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('biWorkbench')) {
         this.refreshSettings();
-        void this.postState();
+        this.runInBackground('Refresh workbench settings', this.postState());
       }
     });
   }
@@ -670,6 +671,12 @@ export class ExtensionController implements vscode.Disposable {
       return error.message.replaceAll(this.manager.projectDirectory ?? '\0', '<project>');
     }
     return String(error);
+  }
+
+  private runInBackground(operation: string, promise: Promise<unknown>): void {
+    void promise.catch((error: unknown) => {
+      this.logger.error(operation, error);
+    });
   }
 }
 
